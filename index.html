@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WC2026 Predictor — exact-score model</title>
+<link rel="stylesheet" href="web/style.css">
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>⚽ WC2026 Predictor</h1>
+    <span class="sub">SRS + Elo + attack/defense Poisson → exact-score probabilities</span>
+  </div>
+  <div class="actions">
+    <button id="btn-update" disabled>🔄 Update results &amp; odds</button>
+    <span id="status" class="status">loading Python runtime…</span>
+  </div>
+</header>
+
+<div id="progressbar"><div id="progressfill"></div></div>
+
+<nav>
+  <button class="tab active" data-tab="matches">Matches</button>
+  <button class="tab" data-tab="matchup">Matchup tool</button>
+  <button class="tab" data-tab="ratings">Power ratings</button>
+  <button class="tab" data-tab="settings">Settings &amp; calibration</button>
+</nav>
+
+<main>
+  <section id="tab-matches" class="tabpane active">
+    <div class="row">
+      <label>Date: <select id="day-select"></select></label>
+      <span id="wc-progress" class="muted"></span>
+    </div>
+    <div id="fixture-list"></div>
+    <div id="match-prediction"></div>
+  </section>
+
+  <section id="tab-matchup" class="tabpane">
+    <div class="row">
+      <select id="team-a"></select>
+      <span class="vs">vs</span>
+      <select id="team-b"></select>
+      <select id="venue-select">
+        <option value="">Neutral venue</option>
+        <option value="United States">in United States</option>
+        <option value="Mexico">in Mexico</option>
+        <option value="Canada">in Canada</option>
+      </select>
+      <button id="btn-matchup">Predict</button>
+    </div>
+    <p class="muted">Host edge applies automatically when USA / Mexico / Canada play in their own country.</p>
+    <div id="matchup-prediction"></div>
+  </section>
+
+  <section id="tab-ratings" class="tabpane">
+    <table id="ratings-table">
+      <thead><tr><th>#</th><th>Team</th><th>Grp</th><th>Strength</th><th>Elo</th>
+      <th>FIFA</th><th>Last 10</th><th>PPG</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="tab-settings" class="tabpane">
+    <h3>The Odds API key</h3>
+    <p class="muted">Stored only in this browser (localStorage) — never in the repo.
+       Free key: <a href="https://the-odds-api.com" target="_blank" rel="noopener">the-odds-api.com</a></p>
+    <div class="row">
+      <input id="odds-key" type="password" placeholder="paste API key" size="40">
+      <button id="btn-save-key">Save &amp; test</button>
+      <span id="odds-status" class="muted"></span>
+    </div>
+
+    <h3>Calibration anchors</h3>
+    <p class="muted">Paste projections from Action Network's daily articles (projected score +
+       win/draw/loss probabilities). One object per match. Then hit Recalibrate.</p>
+    <textarea id="anchors-box" rows="14" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="btn-recalibrate">🎯 Save anchors &amp; recalibrate</button>
+      <span id="cal-status" class="muted"></span>
+    </div>
+    <pre id="cal-result"></pre>
+
+    <h3>Model notes</h3>
+    <ul class="muted small">
+      <li>World Cup 2026 results weigh 8× friendlies (qualifiers 3×, Nations League 2×) with a 2-year-half-life time decay.</li>
+      <li>“Update results &amp; odds” pulls the community results dataset (new WC scores appear within hours of full time) and fresh sportsbook lines, then retrains in your browser.</li>
+      <li>Sportsbook consensus (median, de-vigged) blends into the final probabilities at 35% when odds are available.</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="muted small">
+  Model runs fully in your browser (Pyodide). Data: martj42/international_results ·
+  FIFA ranking 11 Jun 2026 · calibrated to Action Network day-1 projections.
+  For fun, not betting advice.
+</footer>
+
+<script src="web/app.js"></script>
+</body>
+</html>

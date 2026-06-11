@@ -1,0 +1,89 @@
+:root {
+  --bg: #0e1420; --panel: #18202f; --panel2: #1f2a3d; --line: #2b3950;
+  --text: #e8edf5; --muted: #8fa0b8; --accent: #38b26a; --accent2: #f5b942;
+  --home: #38b26a; --draw: #5a6b85; --away: #d05c5c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.45;
+}
+header {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; padding: 14px 22px;
+  background: linear-gradient(135deg, #122036, #0e1420); border-bottom: 1px solid var(--line);
+}
+h1 { margin: 0; font-size: 1.5rem; }
+.sub { color: var(--muted); font-size: .85rem; }
+.actions { display: flex; align-items: center; gap: 12px; }
+.status { color: var(--accent2); font-size: .85rem; max-width: 340px; }
+#progressbar { height: 3px; background: var(--panel); }
+#progressfill { height: 3px; width: 0%; background: var(--accent); transition: width .4s; }
+
+nav { display: flex; gap: 4px; padding: 10px 22px 0; flex-wrap: wrap; }
+.tab {
+  background: var(--panel); color: var(--muted); border: 1px solid var(--line);
+  border-bottom: none; padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer;
+}
+.tab.active { background: var(--panel2); color: var(--text); font-weight: 600; }
+main { padding: 16px 22px 40px; }
+.tabpane { display: none; }
+.tabpane.active { display: block; }
+
+button {
+  background: var(--accent); color: #08160e; font-weight: 600; border: none;
+  padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+button:disabled { opacity: .45; cursor: wait; }
+button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+select, input, textarea {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 10px; font-size: .95rem;
+}
+textarea { width: 100%; font-family: Consolas, monospace; font-size: .85rem; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.vs { color: var(--muted); font-weight: 700; }
+.muted { color: var(--muted); }
+.small { font-size: .85rem; }
+
+.fixture {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; margin: 6px 0; cursor: pointer;
+}
+.fixture:hover { background: var(--panel2); }
+.fixture .teams { font-weight: 600; }
+.fixture .score { color: var(--accent2); font-weight: 700; }
+.fixture .where { color: var(--muted); font-size: .85rem; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px 20px; margin: 14px 0; max-width: 860px;
+}
+.card h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.scoreproj { font-size: 1.9rem; font-weight: 800; margin: 8px 0; }
+.scoreproj .mu { color: var(--accent2); }
+.bar3 { display: flex; height: 30px; border-radius: 8px; overflow: hidden; margin: 8px 0; font-size: .85rem; }
+.bar3 div { display: flex; align-items: center; justify-content: center; color: #fff; min-width: 0; overflow: hidden; white-space: nowrap; }
+.bar3 .h { background: var(--home); } .bar3 .d { background: var(--draw); } .bar3 .a { background: var(--away); }
+.kv { color: var(--muted); font-size: .9rem; margin: 2px 0; }
+.kv b { color: var(--text); }
+
+.scorebars { margin-top: 10px; }
+.scorebar { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: .9rem; }
+.scorebar .lbl { width: 44px; text-align: right; font-weight: 700; }
+.scorebar .pct { width: 52px; color: var(--muted); }
+.scorebar .fill { height: 12px; background: var(--accent); border-radius: 6px; }
+
+table.matrix { border-collapse: collapse; margin-top: 10px; font-size: .85rem; }
+table.matrix td, table.matrix th { padding: 5px 9px; text-align: center; border: 1px solid var(--line); }
+table.matrix th { color: var(--muted); font-weight: 600; }
+
+#ratings-table { border-collapse: collapse; width: 100%; max-width: 860px; }
+#ratings-table th, #ratings-table td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+#ratings-table th { color: var(--muted); position: sticky; top: 0; background: var(--bg); }
+#ratings-table tr:hover { background: var(--panel); }
+pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; }
+footer { padding: 16px 22px; border-top: 1px solid var(--line); }
+a { color: var(--accent); }
+@media (max-width: 640px) { main, header, nav { padding-left: 10px; padding-right: 10px; } }

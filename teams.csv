@@ -1,0 +1,49 @@
+team,group,fifa_rank,fifa_points,confederation,is_host
+Mexico,A,15,1681.03,CONCACAF,1
+South Korea,A,25,1591.63,AFC,0
+South Africa,A,60,1432.71,CAF,0
+Czech Republic,A,39,1505.74,UEFA,0
+Canada,B,28,1559.48,CONCACAF,1
+Qatar,B,57,1450.31,AFC,0
+Switzerland,B,19,1649.40,UEFA,0
+Bosnia and Herzegovina,B,64,1387.22,UEFA,0
+Brazil,C,6,1761.16,CONMEBOL,0
+Haiti,C,83,1293.10,CONCACAF,0
+Scotland,C,42,1503.34,UEFA,0
+Morocco,C,8,1755.87,CAF,0
+United States,D,16,1673.13,CONCACAF,1
+Paraguay,D,40,1505.35,CONMEBOL,0
+Australia,D,27,1579.34,AFC,0
+Turkey,D,22,1605.73,UEFA,0
+Germany,E,10,1730.37,UEFA,0
+Ivory Coast,E,33,1540.87,CAF,0
+Ecuador,E,23,1598.51,CONMEBOL,0
+Curaçao,E,82,1294.77,CONCACAF,0
+Netherlands,F,7,1757.87,UEFA,0
+Japan,F,18,1660.43,AFC,0
+Tunisia,F,46,1476.40,CAF,0
+Sweden,F,38,1509.79,UEFA,0
+Belgium,G,9,1734.71,UEFA,0
+Egypt,G,29,1562.36,CAF,0
+Iran,G,21,1619.58,AFC,0
+New Zealand,G,85,1275.58,OFC,0
+Spain,H,2,1876.40,UEFA,0
+Cape Verde,H,67,1371.11,CAF,0
+Saudi Arabia,H,61,1422.71,AFC,0
+Uruguay,H,17,1673.07,CONMEBOL,0
+France,I,1,1877.32,UEFA,0
+Senegal,I,14,1688.99,CAF,0
+Iraq,I,56,1451.16,AFC,0
+Norway,I,31,1557.44,UEFA,0
+Argentina,J,3,1874.81,CONMEBOL,0
+Algeria,J,28,1572.44,CAF,0
+Austria,J,24,1597.41,UEFA,0
+Jordan,J,63,1387.73,AFC,0
+Portugal,K,5,1763.83,UEFA,0
+DR Congo,K,45,1477.06,CAF,0
+Uzbekistan,K,50,1458.73,AFC,0
+Colombia,K,13,1693.09,CONMEBOL,0
+England,L,4,1825.97,UEFA,0
+Croatia,L,11,1717.07,UEFA,0
+Ghana,L,73,1346.88,CAF,0
+Panama,L,34,1539.15,CONCACAF,0
