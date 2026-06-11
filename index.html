@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WC2026 Predictor</title>
+<style>
+:root {
+  --bg: #0a0f1a; --panel: #131c2c; --panel2: #1a2638; --line: #263651;
+  --text: #eef3fa; --muted: #93a5c0; --green: #2ecc71; --green2: #27ae60;
+  --gold: #f1c40f; --red: #e74c5b; --drawc: #5d7294;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; color: var(--text); font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.5; min-height: 100vh;
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(46, 204, 113, .14), transparent 60%),
+    radial-gradient(700px 400px at -10% 110%, rgba(241, 196, 15, .10), transparent 60%),
+    var(--bg);
+}
+
+/* loading overlay */
+#loader {
+  position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 18px;
+  background: rgba(10, 15, 26, .96); backdrop-filter: blur(4px);
+  transition: opacity .4s; text-align: center; padding: 20px;
+}
+#loader.hidden { opacity: 0; pointer-events: none; }
+.ball { font-size: 3.2rem; animation: bounce 1s ease-in-out infinite; }
+@keyframes bounce { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-18px) rotate(120deg) } }
+.loadbar { width: 260px; height: 8px; background: var(--panel2); border-radius: 6px; overflow: hidden; }
+.loadbar div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green2), var(--green)); transition: width .4s; }
+#loader .step { color: var(--muted); font-size: .95rem; max-width: 420px; }
+
+/* header */
+header {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+  padding: 20px 26px 14px; max-width: 1060px; margin: 0 auto;
+}
+.brand h1 { margin: 0; font-size: 1.7rem; letter-spacing: .3px; }
+.brand h1 .gold { color: var(--gold); }
+.brand .sub { color: var(--muted); font-size: .86rem; }
+.hactions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px;
+  max-width: 420px;
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
+.pill.busy .dot { background: var(--gold); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .3 } }
+
+button {
+  font: inherit; font-weight: 600; border: none; border-radius: 10px; cursor: pointer;
+  padding: 10px 16px; color: #06130b;
+  background: linear-gradient(135deg, var(--green), var(--green2));
+  box-shadow: 0 4px 14px rgba(46, 204, 113, .25);
+  transition: transform .1s, box-shadow .15s;
+}
+button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(46, 204, 113, .35); }
+button:disabled { opacity: .45; cursor: wait; }
+
+/* tabs */
+nav {
+  display: flex; gap: 6px; padding: 6px; margin: 8px auto 18px; max-width: 1060px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  width: fit-content;
+}
+.tab {
+  background: transparent; box-shadow: none; color: var(--muted); padding: 9px 18px; border-radius: 10px;
+}
+.tab:hover:not(:disabled) { transform: none; box-shadow: none; color: var(--text); }
+.tab.active { background: var(--panel2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+
+main { max-width: 1060px; margin: 0 auto; padding: 0 26px 50px; }
+.tabpane { display: none; }
+.tabpane.active { display: block; animation: fadein .25s; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px) } }
+
+select, input {
+  font: inherit; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px;
+}
+select:focus, input:focus { outline: 2px solid rgba(46, 204, 113, .4); }
+.row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+.muted { color: var(--muted); } .small { font-size: .86rem; }
+
+/* fixtures */
+.daybar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.daybar .nav { padding: 8px 13px; background: var(--panel2); color: var(--text); box-shadow: none; border: 1px solid var(--line); }
+#fixture-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 10px; }
+.fixture {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px 16px; cursor: pointer; transition: transform .12s, border-color .12s;
+}
+.fixture:hover { transform: translateY(-2px); border-color: var(--green2); }
+.fixture.selected { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.fixture .teams { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1.02rem; }
+.fixture .flag { font-size: 1.3rem; margin-right: 6px; }
+.fixture .score { color: var(--gold); font-weight: 800; }
+.fixture .meta { color: var(--muted); font-size: .8rem; margin-top: 6px; display: flex; justify-content: space-between; }
+.badge { background: rgba(241, 196, 15, .15); color: var(--gold); border-radius: 6px; padding: 1px 7px; font-size: .74rem; font-weight: 700; }
+
+/* prediction card */
+.card {
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 1px solid var(--line); border-radius: 18px; padding: 22px 26px; margin: 18px 0;
+}
+.card .matchhead { display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap; text-align: center; }
+.card .side { min-width: 130px; }
+.card .side .flag { font-size: 2.6rem; display: block; }
+.card .side .name { font-weight: 800; font-size: 1.05rem; }
+.card .side .elo { color: var(--muted); font-size: .8rem; }
+.proj { text-align: center; }
+.proj .nums {
+  font-size: 2.8rem; font-weight: 900; letter-spacing: 1px;
+  background: linear-gradient(135deg, var(--green), var(--gold));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.proj .lbl { color: var(--muted); font-size: .76rem; text-transform: uppercase; letter-spacing: 1.5px; }
+
+.bar3 { display: flex; height: 14px; border-radius: 8px; overflow: hidden; margin: 18px 0 6px; }
+.bar3 .h { background: var(--green2); } .bar3 .d { background: var(--drawc); } .bar3 .a { background: var(--red); }
+.legend { display: flex; justify-content: space-between; gap: 10px; font-size: .88rem; flex-wrap: wrap; }
+.legend b { font-size: 1rem; }
+.legend .h b { color: var(--green); } .legend .d b { color: var(--muted); } .legend .a b { color: var(--red); }
+
+.kv { color: var(--muted); font-size: .9rem; margin: 4px 0; }
+.kv b { color: var(--text); }
+.divider { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+
+.scorebar { display: flex; align-items: center; gap: 10px; margin: 4px 0; font-size: .92rem; }
+.scorebar .lbl { width: 42px; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+.scorebar .pct { width: 52px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.scorebar .fill { height: 13px; border-radius: 7px; background: linear-gradient(90deg, var(--green2), var(--green)); }
+
+table.matrix { border-collapse: collapse; margin-top: 12px; font-size: .85rem; font-variant-numeric: tabular-nums; }
+table.matrix td, table.matrix th { padding: 6px 10px; text-align: center; border: 1px solid var(--line); }
+table.matrix th { color: var(--muted); font-weight: 600; }
+details summary { cursor: pointer; color: var(--muted); margin-top: 12px; }
+
+/* matchup */
+.vsrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vsrow .vs { font-weight: 900; color: var(--gold); }
+
+/* rankings */
+#ratings-table { border-collapse: collapse; width: 100%; }
+#ratings-table th, #ratings-table td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+#ratings-table th { color: var(--muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .8px; }
+#ratings-table tr:hover td { background: var(--panel); }
+.sbar { display: inline-block; height: 9px; border-radius: 5px; background: linear-gradient(90deg, var(--green2), var(--green)); vertical-align: middle; margin-right: 8px; }
+.formstr { font-family: Consolas, monospace; letter-spacing: 1px; font-size: .85rem; }
+.formstr .W { color: var(--green); } .formstr .D { color: var(--muted); } .formstr .L { color: var(--red); }
+
+footer { max-width: 1060px; margin: 0 auto; padding: 18px 26px 30px; color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); }
+a { color: var(--green); }
+h3 { margin-top: 26px; }
+
+@media (max-width: 640px) {
+  header, main, footer { padding-left: 14px; padding-right: 14px; }
+  nav { width: auto; margin-left: 14px; margin-right: 14px; flex-wrap: wrap; }
+  .proj .nums { font-size: 2.1rem; }
+}
+
+</style>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+</head>
+<body>
+
+<div id="loader">
+  <div class="ball">⚽</div>
+  <div class="loadbar"><div id="loadfill"></div></div>
+  <div class="step" id="loadstep">Starting up</div>
+</div>
+
+<header>
+  <div class="brand">
+    <h1>WC<span class="gold">2026</span> Predictor</h1>
+    <div class="sub">Exact-score probabilities for every World Cup match</div>
+  </div>
+  <div class="hactions">
+    <span class="pill" id="statuspill"><span class="dot"></span><span id="status">starting</span></span>
+    <button id="btn-update" disabled>Update results &amp; odds</button>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" data-tab="matches">Matches</button>
+  <button class="tab" data-tab="matchup">Any matchup</button>
+  <button class="tab" data-tab="ratings">Rankings</button>
+  <button class="tab" data-tab="settings">Odds key</button>
+</nav>
+
+<main>
+  <section id="tab-matches" class="tabpane active">
+    <div class="daybar">
+      <button class="nav" id="day-prev">←</button>
+      <select id="day-select"></select>
+      <button class="nav" id="day-next">→</button>
+      <span id="wc-progress" class="muted small"></span>
+    </div>
+    <div id="fixture-list"></div>
+    <div id="match-prediction"></div>
+  </section>
+
+  <section id="tab-matchup" class="tabpane">
+    <div class="vsrow">
+      <select id="team-a"></select>
+      <span class="vs">VS</span>
+      <select id="team-b"></select>
+      <select id="venue-select">
+        <option value="">Neutral venue</option>
+        <option value="United States">in United States</option>
+        <option value="Mexico">in Mexico</option>
+        <option value="Canada">in Canada</option>
+      </select>
+      <button id="btn-matchup">Predict</button>
+    </div>
+    <p class="muted small">Host advantage kicks in when USA, Mexico or Canada play in their own country.</p>
+    <div id="matchup-prediction"></div>
+  </section>
+
+  <section id="tab-ratings" class="tabpane">
+    <table id="ratings-table">
+      <thead><tr><th>#</th><th>Team</th><th>Group</th><th>Strength</th><th>Elo</th>
+      <th>FIFA</th><th>Last 10</th><th>PPG</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section id="tab-settings" class="tabpane">
+    <h3>The Odds API key</h3>
+    <p class="muted">The key is saved in this browser only. It never goes into the repository.
+       Get a free one at <a href="https://the-odds-api.com" target="_blank" rel="noopener">the-odds-api.com</a>.</p>
+    <div class="row">
+      <input id="odds-key" type="password" placeholder="paste API key" size="40">
+      <button id="btn-save-key">Save &amp; test</button>
+    </div>
+    <p class="muted" id="odds-status"></p>
+    <h3>How updating works</h3>
+    <p class="muted small">The Update button downloads the latest international results
+       (World Cup scores show up a few hours after full time), grabs current sportsbook
+       lines, and retrains the model in your browser. Takes about 20 seconds.
+       New World Cup matches count 8 times as much as friendlies in training.</p>
+  </section>
+</main>
+
+<footer>
+  Runs entirely in your browser. Data: martj42/international_results, FIFA ranking 11 Jun 2026.
+  Sportsbook lines blend in at 35% when a key is saved. Not betting advice.
+</footer>
+
+<script type="application/json" id="embedded-files">
+{"wc_model/__init__.py": "\"\"\"WC2026 prediction model package.\"\"\"\n", "wc_model/config.py": "\"\"\"Global configuration for the WC2026 prediction model.\"\"\"\nfrom pathlib import Path\n\nROOT = Path(__file__).resolve().parent.parent\nDATA = ROOT / \"data\"\nRESULTS_CSV = DATA / \"results.csv\"\nTEAMS_CSV = DATA / \"teams.csv\"\nXG_CSV = DATA / \"xg.csv\"                    # optional: date,team,opponent,xg\nSQUAD_VALUES_CSV = DATA / \"squad_values.csv\"  # optional: team,value_meur\nMANUAL_ODDS_CSV = DATA / \"manual_odds.csv\"  # optional: home,away,odds_home,odds_draw,odds_away\nODDS_CACHE = DATA / \"odds_cache.json\"\nRATINGS_CACHE = DATA / \"ratings.json\"\nCALIBRATION_JSON = DATA / \"calibration.json\"\n\nRESULTS_URL = \"https://raw.githubusercontent.com/martj42/international_results/master/results.csv\"\n\nWC_START = \"2026-06-11\"           # tournament start: results on/after this get WC_BOOST\nTRAIN_CUTOFF_YEARS = 8            # attack/defense + SRS training window\nHALF_LIFE_DAYS = 730.0            # time-decay half-life (2 years)\n\n# Match-importance weights (multiplied by time decay).  WC 2026 games dominate.\nIMPORTANCE = {\n    \"FIFA World Cup\": 4.0,\n    \"FIFA World Cup qualification\": 3.0,\n    \"UEFA Euro\": 3.0,\n    \"Copa América\": 3.0,\n    \"African Cup of Nations\": 3.0,\n    \"AFC Asian Cup\": 3.0,\n    \"Gold Cup\": 2.5,\n    \"CONCACAF Championship\": 2.5,\n    \"Oceania Nations Cup\": 2.5,\n    \"UEFA Nations League\": 2.0,\n    \"CONCACAF Nations League\": 1.5,\n    \"UEFA Euro qualification\": 2.0,\n    \"African Cup of Nations qualification\": 2.0,\n    \"AFC Asian Cup qualification\": 2.0,\n    \"Gold Cup qualification\": 1.5,\n    \"Friendly\": 1.0,\n}\nDEFAULT_IMPORTANCE = 1.5\nWC_BOOST = 8.0                    # weight for 2026 WC matches (vs 1.0 friendlies)\n\n# Elo parameters (eloratings.net conventions)\nELO_K = {  # base K by importance class\n    \"FIFA World Cup\": 60.0,\n    \"FIFA World Cup qualification\": 40.0,\n    \"UEFA Euro\": 50.0,\n    \"Copa América\": 50.0,\n    \"African Cup of Nations\": 50.0,\n    \"AFC Asian Cup\": 50.0,\n    \"Gold Cup\": 40.0,\n    \"CONCACAF Championship\": 40.0,\n    \"UEFA Nations League\": 40.0,\n    \"Friendly\": 20.0,\n}\nELO_K_DEFAULT = 30.0\nELO_HOME_ADV = 80.0               # Elo points for non-neutral home side\nELO_START = 1500.0\n\n# Goal-model parameters (some are re-tuned by calibrate())\nGOAL_CAP = 4          # soft cap: goals above this count 25%\nXG_BLEND = 0.45       # weight on xG when xg.csv provides it\nSHRINK_GAMES = 8.0    # pseudo-games of Elo-prior shrinkage for attack/defense\nSRS_GD_CAP = 3.0\nSRS_HOME_ADV = 0.35   # goals, non-neutral\n\nDEFAULTS = {\n    \"hfa_goals\": 0.32,        # log-mu host advantage (hosts playing in own country)\n    \"elo_gd_scale\": 250.0,    # Elo diff -> expected goal difference divisor\n    \"elo_blend\": 0.45,        # weight of Elo-implied GD vs attack/defense GD\n    \"goal_level\": 0.0,        # global log-mu shift (calibration)\n    \"form_beta\": 0.05,        # log-mu per form z-score\n    \"exp_beta\": 0.03,         # log-mu per experience z-score\n    \"depth_beta\": 0.03,       # log-mu per squad-depth z-score (if data present)\n    \"rho\": -0.12,             # Dixon-Coles low-score correction\n    \"market_weight\": 0.35,    # weight of de-vigged market 1X2 when odds available\n}\n\n# Travel penalty (log-mu) for playing a World Cup in North America\nTRAVEL_PENALTY = {\n    \"CONCACAF\": 0.0, \"CONMEBOL\": -0.01, \"UEFA\": -0.02,\n    \"CAF\": -0.03, \"AFC\": -0.03, \"OFC\": -0.03,\n}\n\nMAX_GOALS = 10  # exact-score grid 0..MAX_GOALS\n\n# Action Network per-game model anchors (Jun 10, 2026) used for calibration.\n# (home, away, venue_country, mu_h, mu_a, p_home, p_draw, p_away, elo_h, elo_a)\nAN_ANCHORS = [\n    (\"Mexico\", \"South Africa\", \"Mexico\", 1.7, 0.6, 0.63, 0.23, 0.14, 1868, 1545),\n    (\"Czech Republic\", \"South Korea\", \"Mexico\", 1.2, 1.1, 0.37, 0.28, 0.34, 1670, 1770),\n]\n\nANCHORS_JSON = DATA / \"anchors.json\"\n\n\ndef get_anchors() -> list:\n    \"\"\"Calibration anchors; data/anchors.json overrides AN_ANCHORS if present.\n\n    JSON format: list of objects with keys\n      home, away, venue, mu_home, mu_away, p_home, p_draw, p_away\n    (elo_home / elo_away optional, only used for the sanity-check printout).\n    \"\"\"\n    if ANCHORS_JSON.exists():\n        import json\n        rows = json.loads(ANCHORS_JSON.read_text(encoding=\"utf-8\"))\n        return [(r[\"home\"], r[\"away\"], r[\"venue\"], r[\"mu_home\"], r[\"mu_away\"],\n                 r[\"p_home\"], r[\"p_draw\"], r[\"p_away\"],\n                 r.get(\"elo_home\", 0), r.get(\"elo_away\", 0)) for r in rows]\n    return AN_ANCHORS\n", "wc_model/data.py": "\"\"\"Loading and preparing match data.\"\"\"\nfrom __future__ import annotations\n\nimport numpy as np\nimport pandas as pd\n\nfrom . import config\n\n\ndef load_results() -> pd.DataFrame:\n    df = pd.read_csv(config.RESULTS_CSV)\n    df[\"date\"] = pd.to_datetime(df[\"date\"])\n    df[\"neutral\"] = df[\"neutral\"].astype(bool)\n    return df\n\n\ndef split_played_fixtures(df: pd.DataFrame):\n    \"\"\"Split into played matches and upcoming (unscored) WC fixtures.\"\"\"\n    played = df[df[\"home_score\"].notna()].copy()\n    played[\"home_score\"] = played[\"home_score\"].astype(int)\n    played[\"away_score\"] = played[\"away_score\"].astype(int)\n    fixtures = df[df[\"home_score\"].isna() & (df[\"tournament\"] == \"FIFA World Cup\")].copy()\n    return played, fixtures\n\n\ndef match_weights(df: pd.DataFrame, asof: pd.Timestamp) -> pd.Series:\n    \"\"\"Importance x exponential time-decay weight per match.\"\"\"\n    imp = df[\"tournament\"].map(config.IMPORTANCE).fillna(config.DEFAULT_IMPORTANCE)\n    is_wc26 = (df[\"tournament\"] == \"FIFA World Cup\") & (df[\"date\"] >= pd.Timestamp(config.WC_START))\n    imp = imp.where(~is_wc26, config.WC_BOOST)\n    days = (asof - df[\"date\"]).dt.days.clip(lower=0)\n    decay = 0.5 ** (days / config.HALF_LIFE_DAYS)\n    return imp * decay\n\n\ndef soft_cap_goals(g: pd.Series) -> pd.Series:\n    \"\"\"Blowout damping: goals above GOAL_CAP only count 25% (xG-style smoothing).\"\"\"\n    cap = config.GOAL_CAP\n    return np.minimum(g, cap) + 0.25 * np.maximum(g - cap, 0)\n\n\ndef apply_xg_blend(long_df: pd.DataFrame) -> pd.DataFrame:\n    \"\"\"If data/xg.csv exists (date,team,opponent,xg), blend actual goals with xG.\"\"\"\n    if not config.XG_CSV.exists():\n        return long_df\n    xg = pd.read_csv(config.XG_CSV)\n    xg[\"date\"] = pd.to_datetime(xg[\"date\"])\n    merged = long_df.merge(xg, on=[\"date\", \"team\", \"opponent\"], how=\"left\")\n    has = merged[\"xg\"].notna()\n    merged.loc[has, \"goals_t\"] = (\n        (1 - config.XG_BLEND) * merged.loc[has, \"goals_t\"] + config.XG_BLEND * merged.loc[has, \"xg\"]\n    )\n    return merged.drop(columns=[\"xg\"])\n\n\ndef to_long(played: pd.DataFrame, asof: pd.Timestamp) -> pd.DataFrame:\n    \"\"\"One row per team-match with training goals, weights, home indicator.\"\"\"\n    w = match_weights(played, asof)\n    base = played.assign(weight=w)\n    home = base.rename(columns={\"home_team\": \"team\", \"away_team\": \"opponent\",\n                                \"home_score\": \"gf\", \"away_score\": \"ga\"})\n    home[\"is_home\"] = ~base[\"neutral\"]\n    away = base.rename(columns={\"away_team\": \"team\", \"home_team\": \"opponent\",\n                                \"away_score\": \"gf\", \"home_score\": \"ga\"})\n    away[\"is_home\"] = False\n    cols = [\"date\", \"team\", \"opponent\", \"gf\", \"ga\", \"is_home\", \"weight\", \"tournament\"]\n    long_df = pd.concat([home[cols], away[cols]], ignore_index=True)\n    long_df[\"goals_t\"] = soft_cap_goals(long_df[\"gf\"])\n    long_df = apply_xg_blend(long_df)\n    return long_df\n\n\ndef load_teams() -> pd.DataFrame:\n    t = pd.read_csv(config.TEAMS_CSV)\n    t[\"is_host\"] = t[\"is_host\"].astype(bool)\n    return t.set_index(\"team\")\n", "wc_model/ratings.py": "\"\"\"Rating engines: Elo, weighted SRS, attack/defense Poisson strengths.\"\"\"\nfrom __future__ import annotations\n\nimport numpy as np\nimport pandas as pd\n\nfrom . import config\n\n\n# ---------------------------------------------------------------- Elo\ndef compute_elo(played: pd.DataFrame) -> dict[str, float]:\n    \"\"\"World Football Elo (eloratings.net conventions) over full history.\"\"\"\n    elo: dict[str, float] = {}\n\n    def get(t):\n        return elo.get(t, config.ELO_START)\n\n    k_map = config.ELO_K\n    rows = played[[\"home_team\", \"away_team\", \"home_score\", \"away_score\",\n                   \"neutral\", \"tournament\"]].itertuples(index=False)\n    for h, a, hs, as_, neutral, tourn in rows:\n        rh, ra = get(h), get(a)\n        k = k_map.get(tourn, config.ELO_K_DEFAULT)\n        dr = rh - ra + (0.0 if neutral else config.ELO_HOME_ADV)\n        we = 1.0 / (1.0 + 10 ** (-dr / 400.0))\n        res = 1.0 if hs > as_ else (0.5 if hs == as_ else 0.0)\n        gd = abs(hs - as_)\n        if gd <= 1:\n            g = 1.0\n        elif gd == 2:\n            g = 1.5\n        else:\n            g = (11.0 + gd) / 8.0\n        delta = k * g * (res - we)\n        elo[h] = rh + delta\n        elo[a] = ra - delta\n    return elo\n\n\n# ---------------------------------------------------------------- SRS\ndef compute_srs(played: pd.DataFrame, asof: pd.Timestamp,\n                window_years: float = 4.0) -> dict[str, float]:\n    \"\"\"Weighted Simple Rating System on capped goal difference.\n\n    rating_i = weighted mean over games of (adj_gd + rating_opponent)\n    \"\"\"\n    from .data import match_weights\n\n    cutoff = asof - pd.Timedelta(days=int(365.25 * window_years))\n    df = played[played[\"date\"] >= cutoff].copy()\n    df[\"w\"] = match_weights(df, asof)\n    gd = (df[\"home_score\"] - df[\"away_score\"]).clip(-config.SRS_GD_CAP, config.SRS_GD_CAP)\n    gd = gd - np.where(df[\"neutral\"], 0.0, config.SRS_HOME_ADV)\n\n    g = pd.concat([\n        pd.DataFrame({\"team\": df[\"home_team\"], \"opp\": df[\"away_team\"], \"gd\": gd, \"w\": df[\"w\"]}),\n        pd.DataFrame({\"team\": df[\"away_team\"], \"opp\": df[\"home_team\"], \"gd\": -gd, \"w\": df[\"w\"]}),\n    ], ignore_index=True)\n\n    teams = pd.Index(sorted(set(g[\"team\"])))\n    idx = {t: i for i, t in enumerate(teams)}\n    ti = g[\"team\"].map(idx).to_numpy().astype(np.intp)   # intp: wasm32-safe for bincount\n    oi = g[\"opp\"].map(idx).to_numpy().astype(np.intp)\n    w = g[\"w\"].to_numpy()\n    gdv = g[\"gd\"].to_numpy()\n    wsum = np.bincount(ti, weights=w, minlength=len(teams))\n    base = np.bincount(ti, weights=w * gdv, minlength=len(teams)) / np.maximum(wsum, 1e-9)\n\n    r = base.copy()\n    for _ in range(200):\n        opp_avg = np.bincount(ti, weights=w * r[oi], minlength=len(teams)) / np.maximum(wsum, 1e-9)\n        r_new = base + opp_avg\n        r_new -= r_new.mean()\n        if np.abs(r_new - r).max() < 1e-7:\n            r = r_new\n            break\n        r = 0.5 * r + 0.5 * r_new\n    return dict(zip(teams, r))\n\n\n# ------------------------------------------------- attack/defense Poisson\ndef fit_attack_defense(long_df: pd.DataFrame, elo: dict[str, float],\n                       min_games: int = 5, sweeps: int = 40):\n    \"\"\"Weighted Poisson fit:  log mu = c + home*h + att_team - def_opponent.\n\n    Multiplicative (Maher-style) alternating updates, then Elo-prior shrinkage\n    for teams with little data.\n    \"\"\"\n    df = long_df.copy()\n    teams = pd.Index(sorted(set(df[\"team\"]) | set(df[\"opponent\"])))\n    idx = {t: i for i, t in enumerate(teams)}\n    n = len(teams)\n    ti = df[\"team\"].map(idx).to_numpy().astype(np.intp)  # intp: wasm32-safe for bincount\n    oi = df[\"opponent\"].map(idx).to_numpy().astype(np.intp)\n    w = df[\"weight\"].to_numpy()\n    y = df[\"goals_t\"].to_numpy(dtype=float)\n    home = df[\"is_home\"].to_numpy(dtype=float)\n\n    att = np.zeros(n)\n    dfn = np.zeros(n)\n    c = np.log(max(np.average(y, weights=w), 1e-6))\n    h = 0.25\n\n    for _ in range(sweeps):\n        mu = np.exp(c + h * home + att[ti] - dfn[oi])\n        # attack update\n        num = np.bincount(ti, weights=w * y, minlength=n)\n        den = np.bincount(ti, weights=w * mu, minlength=n)\n        att += np.log(np.maximum(num, 1e-9) / np.maximum(den, 1e-9))\n        att -= att.mean()\n        mu = np.exp(c + h * home + att[ti] - dfn[oi])\n        # defense update (more conceded -> lower def)\n        num = np.bincount(oi, weights=w * y, minlength=n)\n        den = np.bincount(oi, weights=w * mu, minlength=n)\n        dfn -= np.log(np.maximum(num, 1e-9) / np.maximum(den, 1e-9))\n        dfn -= dfn.mean()\n        # intercept + home advantage\n        mu = np.exp(c + h * home + att[ti] - dfn[oi])\n        c += np.log(np.sum(w * y) / np.sum(w * mu))\n        mask = home > 0\n        if mask.any():\n            mu = np.exp(c + h * home + att[ti] - dfn[oi])\n            ratio = np.sum(w[mask] * y[mask]) / max(np.sum(w[mask] * mu[mask]), 1e-9)\n            h += np.log(max(ratio, 1e-9))\n\n    # Elo-prior shrinkage: teams with few weighted games drift to Elo-implied level\n    elo_arr = np.array([elo.get(t, config.ELO_START) for t in teams])\n    z = (elo_arr - elo_arr.mean()) / 400.0\n    att_prior, def_prior = 0.45 * z, 0.45 * z\n    n_eff = np.bincount(ti, weights=w, minlength=n)\n    lam = n_eff / (n_eff + config.SHRINK_GAMES)\n    att = lam * att + (1 - lam) * att_prior\n    dfn = lam * dfn + (1 - lam) * def_prior\n\n    games = np.bincount(ti, minlength=n)\n    return {\n        \"teams\": list(teams),\n        \"att\": dict(zip(teams, att)),\n        \"def\": dict(zip(teams, dfn)),\n        \"intercept\": float(c),\n        \"home_adv\": float(h),\n        \"games\": dict(zip(teams, games.astype(int))),\n    }\n", "wc_model/features.py": "\"\"\"Team features: form, qualification strength, experience, squad depth.\"\"\"\nfrom __future__ import annotations\n\nimport numpy as np\nimport pandas as pd\n\nfrom . import config\n\nMAJOR_FINALS = {\"FIFA World Cup\", \"UEFA Euro\", \"Copa América\",\n                \"African Cup of Nations\", \"AFC Asian Cup\", \"Gold Cup\",\n                \"CONCACAF Championship\", \"Oceania Nations Cup\"}\n\n\ndef _team_matches(played: pd.DataFrame, team: str) -> pd.DataFrame:\n    m = played[(played[\"home_team\"] == team) | (played[\"away_team\"] == team)].copy()\n    is_home = m[\"home_team\"] == team\n    m[\"gf\"] = np.where(is_home, m[\"home_score\"], m[\"away_score\"])\n    m[\"ga\"] = np.where(is_home, m[\"away_score\"], m[\"home_score\"])\n    m[\"opp\"] = np.where(is_home, m[\"away_team\"], m[\"home_team\"])\n    m[\"pts\"] = np.select([m[\"gf\"] > m[\"ga\"], m[\"gf\"] == m[\"ga\"]], [3, 1], 0)\n    return m\n\n\ndef form_last10(played: pd.DataFrame, team: str, elo: dict[str, float]) -> dict:\n    \"\"\"Last-10 form: ppg, goals, and Elo-expectation-adjusted performance.\"\"\"\n    m = _team_matches(played, team).sort_values(\"date\").tail(10)\n    if m.empty:\n        return {\"games\": 0, \"ppg\": 1.0, \"gf\": 1.2, \"ga\": 1.2, \"perf\": 0.0, \"wdl\": \"\"}\n    e_team = elo.get(team, config.ELO_START)\n    exp = np.array([1 / (1 + 10 ** (-(e_team - elo.get(o, config.ELO_START)) / 400)) for o in m[\"opp\"]])\n    actual = np.select([m[\"gf\"] > m[\"ga\"], m[\"gf\"] == m[\"ga\"]], [1.0, 0.5], 0.0)\n    wdl = \"\".join(\"W\" if r == 1 else (\"D\" if r == 0.5 else \"L\") for r in actual)\n    return {\n        \"games\": len(m),\n        \"ppg\": float(m[\"pts\"].mean()),\n        \"gf\": float(m[\"gf\"].mean()),\n        \"ga\": float(m[\"ga\"].mean()),\n        \"perf\": float((actual - exp).mean()),   # >0 = exceeding Elo expectation\n        \"wdl\": wdl,\n    }\n\n\ndef qualification_strength(played: pd.DataFrame, team: str) -> dict:\n    \"\"\"Points/GD per game in 2026 WC qualifying (2023+).\"\"\"\n    m = _team_matches(played, team)\n    q = m[(m[\"tournament\"] == \"FIFA World Cup qualification\") & (m[\"date\"] >= \"2023-01-01\")]\n    if q.empty:  # hosts skip qualifying: use competitive matches instead\n        q = m[(m[\"date\"] >= \"2023-01-01\") & (m[\"tournament\"] != \"Friendly\")]\n    if q.empty:\n        return {\"games\": 0, \"ppg\": 1.5, \"gd_pg\": 0.0}\n    return {\"games\": len(q), \"ppg\": float(q[\"pts\"].mean()),\n            \"gd_pg\": float((q[\"gf\"] - q[\"ga\"]).mean())}\n\n\ndef experience(played: pd.DataFrame, team: str) -> float:\n    \"\"\"Weighted count of major-finals matches since 2014 (recent count double).\"\"\"\n    m = _team_matches(played, team)\n    m = m[m[\"tournament\"].isin(MAJOR_FINALS) & (m[\"date\"] >= \"2014-01-01\")]\n    recent = (m[\"date\"] >= \"2022-01-01\").sum()\n    return float(len(m) + recent)\n\n\ndef squad_depth() -> dict[str, float] | None:\n    \"\"\"Optional squad market values (team,value_meur). None if file absent.\"\"\"\n    if not config.SQUAD_VALUES_CSV.exists():\n        return None\n    sv = pd.read_csv(config.SQUAD_VALUES_CSV)\n    return dict(zip(sv[\"team\"], np.log1p(sv[\"value_meur\"])))\n\n\ndef zscores(values: dict[str, float]) -> dict[str, float]:\n    arr = np.array(list(values.values()), dtype=float)\n    mu, sd = arr.mean(), arr.std()\n    if sd < 1e-9:\n        return {k: 0.0 for k in values}\n    return {k: (v - mu) / sd for k, v in values.items()}\n", "wc_model/scoreline.py": "\"\"\"Expected goals -> exact-score probability matrix (Dixon-Coles Poisson).\"\"\"\nfrom __future__ import annotations\n\nimport numpy as np\nfrom scipy.stats import poisson\n\nfrom . import config\n\n\ndef score_matrix(mu_h: float, mu_a: float, rho: float | None = None) -> np.ndarray:\n    \"\"\"P[h, a] for h, a in 0..MAX_GOALS with Dixon-Coles low-score correction.\"\"\"\n    if rho is None:\n        rho = config.DEFAULTS[\"rho\"]\n    n = config.MAX_GOALS + 1\n    ph = poisson.pmf(np.arange(n), mu_h)\n    pa = poisson.pmf(np.arange(n), mu_a)\n    m = np.outer(ph, pa)\n    # Dixon-Coles tau on {0,1}x{0,1}\n    m[0, 0] *= 1 - mu_h * mu_a * rho\n    m[0, 1] *= 1 + mu_h * rho\n    m[1, 0] *= 1 + mu_a * rho\n    m[1, 1] *= 1 - rho\n    m = np.clip(m, 0, None)\n    return m / m.sum()\n\n\ndef outcome_probs(m: np.ndarray) -> tuple[float, float, float]:\n    home = np.tril(m, -1).sum()   # h > a\n    draw = np.trace(m)\n    away = np.triu(m, 1).sum()\n    return float(home), float(draw), float(away)\n\n\ndef market_summary(m: np.ndarray) -> dict:\n    h, d, a = outcome_probs(m)\n    n = m.shape[0]\n    tot = np.add.outer(np.arange(n), np.arange(n))\n    return {\n        \"p_home\": h, \"p_draw\": d, \"p_away\": a,\n        \"over_2_5\": float(m[tot > 2.5].sum()),\n        \"under_2_5\": float(m[tot < 2.5].sum()),\n        \"btts\": float(m[1:, 1:].sum()),\n    }\n\n\ndef top_scorelines(m: np.ndarray, k: int = 8) -> list[tuple[str, float]]:\n    flat = [((h, a), m[h, a]) for h in range(m.shape[0]) for a in range(m.shape[1])]\n    flat.sort(key=lambda x: -x[1])\n    return [(f\"{h}-{a}\", float(p)) for (h, a), p in flat[:k]]\n\n\ndef blend_with_market(m: np.ndarray, market_1x2: tuple[float, float, float],\n                      weight: float) -> np.ndarray:\n    \"\"\"Rescale the score matrix so its 1X2 matches a model/market blend.\n\n    Scales the win/draw/loss regions of the matrix proportionally (one IPF step\n    is exact here because the regions partition the matrix).\n    \"\"\"\n    h, d, a = outcome_probs(m)\n    th = (1 - weight) * h + weight * market_1x2[0]\n    td = (1 - weight) * d + weight * market_1x2[1]\n    ta = (1 - weight) * a + weight * market_1x2[2]\n    out = m.copy()\n    ih, ia = np.tril_indices_from(m, -1)\n    out[ih, ia] *= th / max(h, 1e-9)\n    out[np.diag_indices_from(out)] *= td / max(d, 1e-9)\n    iu, ja = np.triu_indices_from(m, 1)\n    out[iu, ja] *= ta / max(a, 1e-9)\n    return out / out.sum()\n", "wc_model/odds.py": "\"\"\"Sportsbook odds: The Odds API client + manual CSV fallback.\n\nGet a free API key at https://the-odds-api.com (500 requests/month) and set:\n    $env:ODDS_API_KEY = \"yourkey\"        (PowerShell)\nWithout a key, you can still feed odds via data/manual_odds.csv:\n    home,away,odds_home,odds_draw,odds_away   (decimal odds)\n\"\"\"\nfrom __future__ import annotations\n\nimport json\nimport os\nimport time\nimport urllib.request\n\nimport pandas as pd\n\nfrom . import config\n\nSPORT_KEYS = [\"soccer_fifa_world_cup\", \"soccer_fifa_world_cup_2026\"]\nCACHE_TTL = 6 * 3600\n\n# The Odds API team names -> results.csv names\nNAME_MAP = {\n    \"USA\": \"United States\", \"Korea Republic\": \"South Korea\",\n    \"Czechia\": \"Czech Republic\", \"Türkiye\": \"Turkey\", \"Cabo Verde\": \"Cape Verde\",\n    \"Côte d'Ivoire\": \"Ivory Coast\", \"Bosnia-Herzegovina\": \"Bosnia and Herzegovina\",\n    \"Congo DR\": \"DR Congo\", \"IR Iran\": \"Iran\",\n}\n\n\ndef _norm(name: str) -> str:\n    return NAME_MAP.get(name, name)\n\n\ndef fetch_api_odds(force: bool = False) -> list | None:\n    \"\"\"Fetch h2h odds for all WC matches; cached in data/odds_cache.json.\"\"\"\n    if config.ODDS_CACHE.exists() and not force:\n        cached = json.loads(config.ODDS_CACHE.read_text(encoding=\"utf-8\"))\n        if time.time() - cached.get(\"fetched_at\", 0) < CACHE_TTL:\n            return cached[\"events\"]\n    key = os.environ.get(\"ODDS_API_KEY\")\n    if not key:\n        return None\n    for sport in SPORT_KEYS:\n        url = (f\"https://api.the-odds-api.com/v4/sports/{sport}/odds\"\n               f\"?regions=eu,us&markets=h2h&oddsFormat=decimal&apiKey={key}\")\n        try:\n            with urllib.request.urlopen(url, timeout=30) as r:\n                events = json.loads(r.read())\n            if events:\n                config.ODDS_CACHE.write_text(\n                    json.dumps({\"fetched_at\": time.time(), \"events\": events}),\n                    encoding=\"utf-8\")\n                return events\n        except Exception:\n            continue\n    return None\n\n\ndef _devig(oh: float, od: float, oa: float) -> tuple[float, float, float]:\n    \"\"\"Decimal odds -> no-vig probabilities (proportional method).\"\"\"\n    inv = (1 / oh, 1 / od, 1 / oa)\n    s = sum(inv)\n    return inv[0] / s, inv[1] / s, inv[2] / s\n\n\ndef market_probs(home: str, away: str) -> tuple[float, float, float] | None:\n    \"\"\"No-vig 1X2 market probabilities for a fixture, or None if unavailable.\"\"\"\n    events = fetch_api_odds()\n    if events:\n        for ev in events:\n            eh, ea = _norm(ev.get(\"home_team\", \"\")), _norm(ev.get(\"away_team\", \"\"))\n            if {eh, ea} != {home, away}:\n                continue\n            quotes = []\n            for bk in ev.get(\"bookmakers\", []):\n                for mk in bk.get(\"markets\", []):\n                    if mk[\"key\"] != \"h2h\":\n                        continue\n                    prices = {_norm(o[\"name\"]): o[\"price\"] for o in mk[\"outcomes\"]}\n                    if home in prices and away in prices and \"Draw\" in prices:\n                        quotes.append((prices[home], prices[\"Draw\"], prices[away]))\n            if quotes:\n                q = pd.DataFrame(quotes, columns=[\"h\", \"d\", \"a\"]).median()\n                p = _devig(q[\"h\"], q[\"d\"], q[\"a\"])\n                return p if eh == home else (p[2], p[1], p[0])\n    if config.MANUAL_ODDS_CSV.exists():\n        mo = pd.read_csv(config.MANUAL_ODDS_CSV)\n        row = mo[(mo[\"home\"] == home) & (mo[\"away\"] == away)]\n        if not row.empty:\n            r = row.iloc[-1]\n            return _devig(r[\"odds_home\"], r[\"odds_draw\"], r[\"odds_away\"])\n        row = mo[(mo[\"home\"] == away) & (mo[\"away\"] == home)]\n        if not row.empty:\n            r = row.iloc[-1]\n            p = _devig(r[\"odds_home\"], r[\"odds_draw\"], r[\"odds_away\"])\n            return p[2], p[1], p[0]\n    return None\n", "wc_model/model.py": "\"\"\"Model orchestration: training, calibration, and match prediction.\"\"\"\nfrom __future__ import annotations\n\nimport json\n\nimport numpy as np\nimport pandas as pd\n\nfrom . import config, data, features, odds, ratings, scoreline\n\n\n# ----------------------------------------------------------------- training\ndef train(asof: str | None = None, save: bool = True) -> dict:\n    \"\"\"Fit all ratings/features and cache them to data/ratings.json.\"\"\"\n    df = data.load_results()\n    played, fixtures = data.split_played_fixtures(df)\n    asof_ts = pd.Timestamp(asof) if asof else max(played[\"date\"].max(), pd.Timestamp.today().normalize())\n\n    elo = ratings.compute_elo(played)\n    srs = ratings.compute_srs(played, asof_ts)\n\n    cutoff = asof_ts - pd.Timedelta(days=int(365.25 * config.TRAIN_CUTOFF_YEARS))\n    recent = played[played[\"date\"] >= cutoff]\n    long_df = data.to_long(recent, asof_ts)\n    ad = ratings.fit_attack_defense(long_df, elo)\n\n    teams = data.load_teams()\n    wc_teams = list(teams.index)\n\n    form = {t: features.form_last10(played, t, elo) for t in wc_teams}\n    qual = {t: features.qualification_strength(played, t) for t in wc_teams}\n    exp_raw = {t: features.experience(played, t) for t in wc_teams}\n    depth_raw = features.squad_depth()\n\n    form_z = features.zscores({t: f[\"perf\"] for t, f in form.items()})\n    exp_z = features.zscores(exp_raw)\n    depth_z = features.zscores({t: depth_raw.get(t, 0.0) for t in wc_teams}) if depth_raw else {t: 0.0 for t in wc_teams}\n\n    # composite strength (reporting + \"team strength difference\" feature)\n    elo_z = features.zscores({t: elo.get(t, config.ELO_START) for t in wc_teams})\n    net_z = features.zscores({t: ad[\"att\"].get(t, 0) + ad[\"def\"].get(t, 0) for t in wc_teams})\n    srs_z = features.zscores({t: srs.get(t, 0.0) for t in wc_teams})\n    fifa_z = features.zscores({t: float(teams.loc[t, \"fifa_points\"]) for t in wc_teams})\n    strength = {t: 0.40 * elo_z[t] + 0.25 * net_z[t] + 0.15 * srs_z[t]\n                + 0.10 * fifa_z[t] + 0.05 * form_z[t] + 0.05 * exp_z[t]\n                for t in wc_teams}\n\n    state = {\n        \"asof\": str(asof_ts.date()),\n        \"elo\": elo, \"srs\": srs,\n        \"att\": ad[\"att\"], \"def\": ad[\"def\"],\n        \"intercept\": ad[\"intercept\"], \"home_adv_fit\": ad[\"home_adv\"],\n        \"games\": ad[\"games\"],\n        \"form\": form, \"qual\": qual,\n        \"form_z\": form_z, \"exp_z\": exp_z, \"depth_z\": depth_z,\n        \"strength\": strength,\n        \"params\": load_calibration(),\n    }\n    if save:\n        config.RATINGS_CACHE.write_text(\n            json.dumps(state, ensure_ascii=False, default=float), encoding=\"utf-8\")\n    return state\n\n\ndef load_state(retrain: bool = False) -> dict:\n    if retrain or not config.RATINGS_CACHE.exists():\n        return train()\n    state = json.loads(config.RATINGS_CACHE.read_text(encoding=\"utf-8\"))\n    state[\"params\"] = load_calibration()\n    return state\n\n\ndef load_calibration() -> dict:\n    params = dict(config.DEFAULTS)\n    if config.CALIBRATION_JSON.exists():\n        params.update(json.loads(config.CALIBRATION_JSON.read_text(encoding=\"utf-8\")))\n    return params\n\n\n# ----------------------------------------------------------------- predict\ndef expected_goals(state: dict, home: str, away: str,\n                   venue_country: str | None = None,\n                   neutral: bool | None = None) -> tuple[float, float]:\n    \"\"\"Model expected goals for each side (before market blending).\"\"\"\n    p = state[\"params\"]\n    teams = data.load_teams()\n\n    def side(team, opp, is_home_side):\n        mu = (state[\"intercept\"] + p[\"goal_level\"]\n              + state[\"att\"].get(team, 0.0) - state[\"def\"].get(opp, 0.0))\n        if team in teams.index:\n            conf = teams.loc[team, \"confederation\"]\n            mu += config.TRAVEL_PENALTY.get(conf, -0.02)\n            mu += (p[\"form_beta\"] * state[\"form_z\"].get(team, 0.0)\n                   + p[\"exp_beta\"] * state[\"exp_z\"].get(team, 0.0)\n                   + p[\"depth_beta\"] * state[\"depth_z\"].get(team, 0.0))\n        return mu\n\n    home_edge = _has_home_edge(teams, home, venue_country, neutral)\n    log_h = side(home, away, True) + (p[\"hfa_goals\"] if home_edge else 0.0)\n    log_a = side(away, home, False)\n    mu_h, mu_a = float(np.exp(log_h)), float(np.exp(log_a))\n\n    # blend goal difference with the Elo-implied goal difference\n    elo_h = state[\"elo\"].get(home, config.ELO_START) + (config.ELO_HOME_ADV if home_edge else 0.0)\n    elo_a = state[\"elo\"].get(away, config.ELO_START)\n    gd_elo = (elo_h - elo_a) / p[\"elo_gd_scale\"]\n    gd = (1 - p[\"elo_blend\"]) * (mu_h - mu_a) + p[\"elo_blend\"] * gd_elo\n    total = mu_h + mu_a\n    mu_h = float(np.clip((total + gd) / 2, 0.12, 5.5))\n    mu_a = float(np.clip(total - mu_h, 0.12, 5.5))\n    return mu_h, mu_a\n\n\ndef _has_home_edge(teams, home, venue_country, neutral):\n    if neutral is False:\n        return True\n    if neutral is True:\n        return False\n    if venue_country and home in teams.index:\n        return bool(teams.loc[home, \"is_host\"]) and venue_country == home\n    return False\n\n\ndef predict_match(state: dict, home: str, away: str,\n                  venue_country: str | None = None,\n                  neutral: bool | None = None,\n                  use_market: bool = True) -> dict:\n    mu_h, mu_a = expected_goals(state, home, away, venue_country, neutral)\n    m = scoreline.score_matrix(mu_h, mu_a, state[\"params\"][\"rho\"])\n    summary = scoreline.market_summary(m)\n\n    market = odds.market_probs(home, away) if use_market else None\n    if market is not None:\n        m_final = scoreline.blend_with_market(m, market, state[\"params\"][\"market_weight\"])\n    else:\n        m_final = m\n    final = scoreline.market_summary(m_final)\n\n    return {\n        \"home\": home, \"away\": away,\n        \"mu_home\": mu_h, \"mu_away\": mu_a,\n        \"matrix\": m_final,\n        \"model_1x2\": (summary[\"p_home\"], summary[\"p_draw\"], summary[\"p_away\"]),\n        \"market_1x2\": market,\n        \"final\": final,\n        \"top_scores\": scoreline.top_scorelines(m_final),\n        \"elo\": (state[\"elo\"].get(home, config.ELO_START), state[\"elo\"].get(away, config.ELO_START)),\n        \"strength\": (state[\"strength\"].get(home), state[\"strength\"].get(away)),\n        \"form\": (state[\"form\"].get(home), state[\"form\"].get(away)),\n    }\n\n\n# ----------------------------------------------------------------- calibrate\ndef calibrate(state: dict | None = None, verbose: bool = True) -> dict:\n    \"\"\"Tune global parameters to match the Action Network day-1 anchors.\"\"\"\n    from scipy.optimize import minimize\n\n    if state is None:\n        state = load_state()\n\n    def loss(x):\n        params = dict(state[\"params\"])\n        params.update({\"goal_level\": x[0], \"hfa_goals\": x[1],\n                       \"elo_gd_scale\": 150 + 350 / (1 + np.exp(-x[2])),\n                       \"elo_blend\": 0.15 + 0.6 / (1 + np.exp(-x[3]))})\n        st = {**state, \"params\": params}\n        tot = 0.0\n        for (h, a, venue, mu_h, mu_a, ph, pd_, pa, _, _) in config.get_anchors():\n            mh, ma = expected_goals(st, h, a, venue_country=venue)\n            mat = scoreline.score_matrix(mh, ma, params[\"rho\"])\n            p = scoreline.outcome_probs(mat)\n            tot += (mh - mu_h) ** 2 + (ma - mu_a) ** 2\n            tot += 4 * ((p[0] - ph) ** 2 + (p[1] - pd_) ** 2 + (p[2] - pa) ** 2)\n        return tot\n\n    d = config.DEFAULTS\n    x0 = [d[\"goal_level\"], d[\"hfa_goals\"],\n          np.log((d[\"elo_gd_scale\"] - 150) / (500 - d[\"elo_gd_scale\"])),\n          np.log((d[\"elo_blend\"] - 0.15) / (0.75 - d[\"elo_blend\"]))]\n    res = minimize(loss, x0, method=\"Nelder-Mead\",\n                   options={\"maxiter\": 600, \"xatol\": 1e-4, \"fatol\": 1e-6})\n    out = {\"goal_level\": float(res.x[0]), \"hfa_goals\": float(res.x[1]),\n           \"elo_gd_scale\": float(150 + 350 / (1 + np.exp(-res.x[2]))),\n           \"elo_blend\": float(0.15 + 0.6 / (1 + np.exp(-res.x[3])))}\n    config.CALIBRATION_JSON.write_text(json.dumps(out, indent=2), encoding=\"utf-8\")\n    state[\"params\"].update(out)\n    if verbose:\n        print(f\"calibration loss: {res.fun:.5f}\")\n        print(json.dumps(out, indent=2))\n    return out\n\n\n# ----------------------------------------------------------------- fixtures\ndef fixtures_on(day: str) -> pd.DataFrame:\n    df = data.load_results()\n    _, fixtures = data.split_played_fixtures(df)\n    return fixtures[fixtures[\"date\"] == pd.Timestamp(day)]\n", "data/teams.csv": "team,group,fifa_rank,fifa_points,confederation,is_host\nMexico,A,15,1681.03,CONCACAF,1\nSouth Korea,A,25,1591.63,AFC,0\nSouth Africa,A,60,1432.71,CAF,0\nCzech Republic,A,39,1505.74,UEFA,0\nCanada,B,28,1559.48,CONCACAF,1\nQatar,B,57,1450.31,AFC,0\nSwitzerland,B,19,1649.40,UEFA,0\nBosnia and Herzegovina,B,64,1387.22,UEFA,0\nBrazil,C,6,1761.16,CONMEBOL,0\nHaiti,C,83,1293.10,CONCACAF,0\nScotland,C,42,1503.34,UEFA,0\nMorocco,C,8,1755.87,CAF,0\nUnited States,D,16,1673.13,CONCACAF,1\nParaguay,D,40,1505.35,CONMEBOL,0\nAustralia,D,27,1579.34,AFC,0\nTurkey,D,22,1605.73,UEFA,0\nGermany,E,10,1730.37,UEFA,0\nIvory Coast,E,33,1540.87,CAF,0\nEcuador,E,23,1598.51,CONMEBOL,0\nCuraçao,E,82,1294.77,CONCACAF,0\nNetherlands,F,7,1757.87,UEFA,0\nJapan,F,18,1660.43,AFC,0\nTunisia,F,46,1476.40,CAF,0\nSweden,F,38,1509.79,UEFA,0\nBelgium,G,9,1734.71,UEFA,0\nEgypt,G,29,1562.36,CAF,0\nIran,G,21,1619.58,AFC,0\nNew Zealand,G,85,1275.58,OFC,0\nSpain,H,2,1876.40,UEFA,0\nCape Verde,H,67,1371.11,CAF,0\nSaudi Arabia,H,61,1422.71,AFC,0\nUruguay,H,17,1673.07,CONMEBOL,0\nFrance,I,1,1877.32,UEFA,0\nSenegal,I,14,1688.99,CAF,0\nIraq,I,56,1451.16,AFC,0\nNorway,I,31,1557.44,UEFA,0\nArgentina,J,3,1874.81,CONMEBOL,0\nAlgeria,J,28,1572.44,CAF,0\nAustria,J,24,1597.41,UEFA,0\nJordan,J,63,1387.73,AFC,0\nPortugal,K,5,1763.83,UEFA,0\nDR Congo,K,45,1477.06,CAF,0\nUzbekistan,K,50,1458.73,AFC,0\nColombia,K,13,1693.09,CONMEBOL,0\nEngland,L,4,1825.97,UEFA,0\nCroatia,L,11,1717.07,UEFA,0\nGhana,L,73,1346.88,CAF,0\nPanama,L,34,1539.15,CONCACAF,0\n", "data/calibration.json": "{\n  \"goal_level\": 0.02294512121910089,\n  \"hfa_goals\": 0.12940791667131588,\n  \"elo_gd_scale\": 342.4948041752858,\n  \"elo_blend\": 0.4500000000000003\n}", "glue.py": "\"\"\"Browser glue: thin JSON API over wc_model, called from the page via Pyodide.\"\"\"\nimport json\nimport sys\n\nsys.path.insert(0, \"/wc\")\n\nimport pandas as pd  # noqa: E402\nfrom wc_model import config, data, model  # noqa: E402\n\nSTATE = None\n\n\ndef retrain():\n    global STATE\n    STATE = model.train()\n    return STATE[\"asof\"]\n\n\ndef load_cached_state():\n    \"\"\"Use ratings.json restored from localStorage instead of retraining.\"\"\"\n    global STATE\n    STATE = model.load_state(retrain=False)\n    return STATE[\"asof\"]\n\n\ndef predict(home, away, venue=\"\", neutral=None):\n    r = model.predict_match(STATE, home, away,\n                            venue_country=venue or None, neutral=neutral)\n    r[\"matrix\"] = [[float(x) for x in row] for row in r[\"matrix\"]]\n    return json.dumps(r, default=float)\n\n\ndef fixtures():\n    df = data.load_results()\n    played, fx = data.split_played_fixtures(df)\n    wc = played[(played[\"tournament\"] == \"FIFA World Cup\")\n                & (played[\"date\"] >= config.WC_START)]\n    rows = []\n    for _, r in fx.iterrows():\n        rows.append({\"date\": str(r[\"date\"].date()), \"home\": r[\"home_team\"],\n                     \"away\": r[\"away_team\"], \"city\": r[\"city\"],\n                     \"country\": r[\"country\"], \"neutral\": bool(r[\"neutral\"]),\n                     \"score\": None})\n    for _, r in wc.iterrows():\n        rows.append({\"date\": str(r[\"date\"].date()), \"home\": r[\"home_team\"],\n                     \"away\": r[\"away_team\"], \"city\": r[\"city\"],\n                     \"country\": r[\"country\"], \"neutral\": bool(r[\"neutral\"]),\n                     \"score\": f\"{int(r['home_score'])}-{int(r['away_score'])}\"})\n    rows.sort(key=lambda x: x[\"date\"])\n    return json.dumps(rows)\n\n\ndef teams_table():\n    t = data.load_teams().reset_index()\n    out = []\n    for _, r in t.iterrows():\n        name = r[\"team\"]\n        f = STATE[\"form\"].get(name, {})\n        out.append({\n            \"team\": name, \"group\": r[\"group\"], \"conf\": r[\"confederation\"],\n            \"fifa_rank\": int(r[\"fifa_rank\"]),\n            \"elo\": round(STATE[\"elo\"].get(name, config.ELO_START)),\n            \"strength\": round(50 + 15 * STATE[\"strength\"].get(name, 0), 1),\n            \"form\": f.get(\"wdl\", \"\"), \"ppg\": round(f.get(\"ppg\", 0), 2),\n        })\n    out.sort(key=lambda x: -x[\"strength\"])\n    return json.dumps(out)\n\n\ndef wc_progress():\n    df = data.load_results()\n    wc = df[(df[\"tournament\"] == \"FIFA World Cup\") & (df[\"date\"] >= config.WC_START)]\n    done = int(wc[\"home_score\"].notna().sum())\n    return json.dumps({\"done\": done, \"total\": int(len(wc))})\n"}
+</script>
+<script>
+/* WC2026 Predictor. The Python model runs in-browser via Pyodide.
+   This file gets inlined into index.html by build_site.py. */
+"use strict";
+
+const RESULTS_URL = "https://raw.githubusercontent.com/martj42/international_results/master/results.csv";
+const ODDS_SPORTS = ["soccer_fifa_world_cup", "soccer_fifa_world_cup_2026"];
+const FILES = JSON.parse(document.getElementById("embedded-files").textContent);
+
+const FLAGS = {
+  "Mexico": "🇲🇽", "South Korea": "🇰🇷", "South Africa": "🇿🇦", "Czech Republic": "🇨🇿",
+  "Canada": "🇨🇦", "Qatar": "🇶🇦", "Switzerland": "🇨🇭", "Bosnia and Herzegovina": "🇧🇦",
+  "Brazil": "🇧🇷", "Haiti": "🇭🇹", "Scotland": "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "Morocco": "🇲🇦",
+  "United States": "🇺🇸", "Paraguay": "🇵🇾", "Australia": "🇦🇺", "Turkey": "🇹🇷",
+  "Germany": "🇩🇪", "Ivory Coast": "🇨🇮", "Ecuador": "🇪🇨", "Curaçao": "🇨🇼",
+  "Netherlands": "🇳🇱", "Japan": "🇯🇵", "Tunisia": "🇹🇳", "Sweden": "🇸🇪",
+  "Belgium": "🇧🇪", "Egypt": "🇪🇬", "Iran": "🇮🇷", "New Zealand": "🇳🇿",
+  "Spain": "🇪🇸", "Cape Verde": "🇨🇻", "Saudi Arabia": "🇸🇦", "Uruguay": "🇺🇾",
+  "France": "🇫🇷", "Senegal": "🇸🇳", "Iraq": "🇮🇶", "Norway": "🇳🇴",
+  "Argentina": "🇦🇷", "Algeria": "🇩🇿", "Austria": "🇦🇹", "Jordan": "🇯🇴",
+  "Portugal": "🇵🇹", "DR Congo": "🇨🇩", "Uzbekistan": "🇺🇿", "Colombia": "🇨🇴",
+  "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Croatia": "🇭🇷", "Ghana": "🇬🇭", "Panama": "🇵🇦",
+};
+const flag = (t) => FLAGS[t] || "⚽";
+
+let py = null;
+let fixtures = [];
+let teams = [];
+let days = [];
+
+const $ = (id) => document.getElementById(id);
+
+function setStatus(msg, busy = false) {
+  $("status").textContent = msg;
+  $("statuspill").classList.toggle("busy", busy);
+  $("loadstep").textContent = msg;
+}
+function loadProgress(p) { $("loadfill").style.width = `${p}%`; }
+
+/* ------------------------------------------------------------- boot */
+async function boot() {
+  try {
+    loadProgress(8); setStatus("loading Python runtime, first visit takes ~20s", true);
+    py = await loadPyodide();
+    loadProgress(30); setStatus("loading numpy, pandas, scipy", true);
+    await py.loadPackage(["numpy", "pandas", "scipy"]);
+    loadProgress(50); setStatus("preparing model", true);
+
+    py.FS.mkdirTree("/wc/wc_model");
+    py.FS.mkdirTree("/wc/data");
+    for (const [path, content] of Object.entries(FILES)) {
+      if (path !== "glue.py") py.FS.writeFile(`/wc/${path}`, content);
+    }
+    py.runPython(FILES["glue.py"]);
+
+    $("odds-key").value = localStorage.getItem("oddsKey") || "";
+    await updateAll(true);
+    $("btn-update").disabled = false;
+    $("loader").classList.add("hidden");
+  } catch (err) {
+    setStatus(`error: ${err.message ?? err}`);
+    console.error(err);
+  }
+}
+
+async function fetchText(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error(`fetch failed: ${url} (${r.status})`);
+  return await r.text();
+}
+
+/* ------------------------------------------ update results and odds */
+async function updateAll(firstLoad = false) {
+  $("btn-update").disabled = true;
+  try {
+    setStatus("downloading latest results", true);
+    const csv = await fetchText(`${RESULTS_URL}?t=${Date.now()}`);
+    if (!csv.startsWith("date,home_team")) throw new Error("results download looks corrupted");
+    py.FS.writeFile("/wc/data/results.csv", csv);
+    loadProgress(65);
+
+    await fetchOdds();
+    loadProgress(75);
+
+    const cacheKey = `v2|${csv.length}`;
+    const cached = localStorage.getItem("ratingsCache");
+    if (!firstLoad || !cached || JSON.parse(cached).key !== cacheKey) {
+      setStatus("training model, about 20s", true);
+      await new Promise((res) => setTimeout(res, 30));
+      py.runPython("retrain()");
+      try {
+        const ratings = py.FS.readFile("/wc/data/ratings.json", { encoding: "utf8" });
+        localStorage.setItem("ratingsCache", JSON.stringify({ key: cacheKey, ratings }));
+      } catch { /* storage full is fine */ }
+    } else {
+      setStatus("restoring cached ratings", true);
+      py.FS.writeFile("/wc/data/ratings.json", JSON.parse(cached).ratings);
+      py.runPython("load_cached_state()");
+    }
+    loadProgress(92);
+
+    fixtures = JSON.parse(py.runPython("fixtures()"));
+    teams = JSON.parse(py.runPython("teams_table()"));
+    const prog = JSON.parse(py.runPython("wc_progress()"));
+    $("wc-progress").textContent = `${prog.done} of ${prog.total} WC matches played`;
+
+    renderDaySelect();
+    renderFixtures();
+    renderRatings();
+    renderMatchupSelectors();
+    loadProgress(100);
+    setStatus(`ready, ratings as of ${py.runPython("STATE['asof']")}`);
+  } catch (err) {
+    setStatus(`update error: ${err.message ?? err}`);
+    console.error(err);
+  } finally {
+    $("btn-update").disabled = false;
+  }
+}
+
+async function fetchOdds() {
+  const key = (localStorage.getItem("oddsKey") || "").trim();
+  if (!key) {
+    $("odds-status").textContent = "No key saved yet. The model runs fine without odds, predictions just skip the market blend.";
+    return 0;
+  }
+  for (const sport of ODDS_SPORTS) {
+    try {
+      setStatus("fetching sportsbook odds", true);
+      const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=eu,us&markets=h2h&oddsFormat=decimal&apiKey=${key}`;
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      const events = await r.json();
+      if (!events.length) continue;
+      const remaining = r.headers.get("x-requests-remaining");
+      py.FS.writeFile("/wc/data/odds_cache.json",
+        JSON.stringify({ fetched_at: Date.now() / 1000, events }));
+      $("odds-status").textContent = `Odds loaded: ${events.length} matches priced. ${remaining} API requests left this month.`;
+      return events.length;
+    } catch (e) { console.warn("odds fetch failed", e); }
+  }
+  $("odds-status").textContent = "Odds fetch failed. Check the key or your monthly quota.";
+  return 0;
+}
+
+/* -------------------------------------------------------- rendering */
+function renderDaySelect() {
+  days = [...new Set(fixtures.map((f) => f.date))].sort();
+  const today = new Date().toISOString().slice(0, 10);
+  const sel = $("day-select");
+  sel.innerHTML = days.map((d) => {
+    const label = new Date(d + "T12:00:00").toLocaleDateString(undefined,
+      { weekday: "short", month: "short", day: "numeric" });
+    return `<option value="${d}">${label}</option>`;
+  }).join("");
+  sel.value = days.includes(today) ? today
+            : days.find((d) => d >= today) || days[days.length - 1];
+}
+
+function shiftDay(delta) {
+  const i = days.indexOf($("day-select").value) + delta;
+  if (i >= 0 && i < days.length) { $("day-select").value = days[i]; renderFixtures(); }
+}
+
+function renderFixtures() {
+  const day = $("day-select").value;
+  const list = fixtures.filter((f) => f.date === day);
+  $("fixture-list").innerHTML = list.map((f) => `
+    <div class="fixture" data-i="${fixtures.indexOf(f)}">
+      <div class="teams">
+        <span><span class="flag">${flag(f.home)}</span>${f.home}</span>
+        <span class="score">${f.score ? f.score : "vs"}</span>
+        <span>${f.away}<span class="flag" style="margin:0 0 0 6px">${flag(f.away)}</span></span>
+      </div>
+      <div class="meta">
+        <span>${f.city}, ${f.country}</span>
+        ${f.neutral ? "" : '<span class="badge">HOST</span>'}
+        ${f.score ? '<span class="badge">FT</span>' : ""}
+      </div>
+    </div>`).join("") || `<p class="muted">No fixtures on this date.</p>`;
+  $("match-prediction").innerHTML = "";
+  document.querySelectorAll(".fixture").forEach((el) =>
+    el.addEventListener("click", () => {
+      document.querySelectorAll(".fixture").forEach((x) => x.classList.remove("selected"));
+      el.classList.add("selected");
+      predictFixture(+el.dataset.i);
+    }));
+}
+
+async function predictFixture(i) {
+  const f = fixtures[i];
+  await renderPrediction("match-prediction", f.home, f.away, f.country, f.neutral,
+    f.score ? `Final score ${f.score}. This is the pre-match view.` : "");
+  $("match-prediction").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function renderPrediction(targetId, home, away, venue, neutral, note) {
+  setStatus(`predicting ${home} vs ${away}`, true);
+  await new Promise((res) => setTimeout(res, 20));
+  const fn = py.globals.get("predict");
+  const r = JSON.parse(fn(home, away, venue || "", neutral ?? null));
+  setStatus(`ready, ratings as of ${py.runPython("STATE['asof']")}`);
+
+  const [ph, pd, pa] = [r.final.p_home, r.final.p_draw, r.final.p_away];
+  const pct = (x) => `${Math.round(100 * x)}%`;
+  const market = r.market_1x2
+    ? `<div class="kv">Sportsbooks (no vig): <b>${pct(r.market_1x2[0])} / ${pct(r.market_1x2[1])} / ${pct(r.market_1x2[2])}</b>, blended in at 35%</div>`
+    : `<div class="kv">No odds for this matchup. Model only.</div>`;
+
+  const scorebars = r.top_scores.map(([s, p]) => `
+    <div class="scorebar"><span class="lbl">${s}</span>
+      <span class="pct">${(100 * p).toFixed(1)}%</span>
+      <div class="fill" style="width:${Math.min(240, 3.4 * 100 * p)}px"></div></div>`).join("");
+
+  const n = 6;
+  const maxP = Math.max(...r.matrix.slice(0, n).flatMap((row) => row.slice(0, n)));
+  let matrix = `<table class="matrix"><tr><th>${home} ↓ ${away} →</th>` +
+    [...Array(n).keys()].map((j) => `<th>${j}</th>`).join("") + "</tr>";
+  for (let i = 0; i < n; i++) {
+    matrix += `<tr><th>${i}</th>` + [...Array(n).keys()].map((j) => {
+      const p = r.matrix[i][j];
+      return `<td style="background:rgba(46,204,113,${(0.85 * p / maxP).toFixed(3)})">${(100 * p).toFixed(1)}</td>`;
+    }).join("") + "</tr>";
+  }
+  matrix += "</table>";
+
+  const fh = r.form[0], fa = r.form[1];
+  const formline = (fh && fa)
+    ? `<div class="kv">Form: <b>${colorForm(fh.wdl)}</b> (${fh.ppg.toFixed(2)} ppg) vs <b>${colorForm(fa.wdl)}</b> (${fa.ppg.toFixed(2)} ppg)</div>`
+    : "";
+
+  $(targetId).innerHTML = `
+    <div class="card">
+      <div class="matchhead">
+        <div class="side">
+          <span class="flag">${flag(home)}</span>
+          <div class="name">${home}</div>
+          <div class="elo">Elo ${Math.round(r.elo[0])} · str ${(50 + 15 * r.strength[0]).toFixed(0)}</div>
+        </div>
+        <div class="proj">
+          <div class="nums">${r.mu_home.toFixed(2)} : ${r.mu_away.toFixed(2)}</div>
+          <div class="lbl">projected score</div>
+        </div>
+        <div class="side">
+          <span class="flag">${flag(away)}</span>
+          <div class="name">${away}</div>
+          <div class="elo">Elo ${Math.round(r.elo[1])} · str ${(50 + 15 * r.strength[1]).toFixed(0)}</div>
+        </div>
+      </div>
+      ${note ? `<div class="kv" style="text-align:center;color:var(--gold)">${note}</div>` : ""}
+      <div class="bar3">
+        <div class="h" style="width:${100 * ph}%"></div>
+        <div class="d" style="width:${100 * pd}%"></div>
+        <div class="a" style="width:${100 * pa}%"></div>
+      </div>
+      <div class="legend">
+        <span class="h">${home} <b>${pct(ph)}</b></span>
+        <span class="d">draw <b>${pct(pd)}</b></span>
+        <span class="a">${away} <b>${pct(pa)}</b></span>
+      </div>
+      <hr class="divider">
+      ${formline}
+      ${market}
+      <div class="kv">Over 2.5 goals: <b>${pct(r.final.over_2_5)}</b> · both teams score: <b>${pct(r.final.btts)}</b></div>
+      <hr class="divider">
+      <b>Most likely scorelines</b>
+      <div class="scorebars">${scorebars}</div>
+      <details><summary>full exact-score matrix (%)</summary>${matrix}</details>
+    </div>`;
+}
+
+function colorForm(wdl) {
+  return `<span class="formstr">${[...wdl].map((c) => `<span class="${c}">${c}</span>`).join("")}</span>`;
+}
+
+function renderRatings() {
+  const maxS = teams[0]?.strength || 100;
+  $("ratings-table").querySelector("tbody").innerHTML = teams.map((t, i) => `
+    <tr><td>${i + 1}</td>
+    <td>${flag(t.team)} ${t.team}</td><td>${t.group}</td>
+    <td><span class="sbar" style="width:${Math.max(6, 90 * t.strength / maxS)}px"></span><b>${t.strength}</b></td>
+    <td>${t.elo}</td><td>#${t.fifa_rank}</td>
+    <td>${colorForm(t.form)}</td><td>${t.ppg.toFixed(2)}</td></tr>`).join("");
+}
+
+function renderMatchupSelectors() {
+  const names = [...teams].sort((a, b) => a.team.localeCompare(b.team));
+  const opts = names.map((t) => `<option value="${t.team}">${flag(t.team)} ${t.team}</option>`).join("");
+  $("team-a").innerHTML = opts;
+  $("team-b").innerHTML = opts;
+  $("team-a").value = "Brazil";
+  $("team-b").value = "Argentina";
+}
+
+/* ---------------------------------------------------------- wiring */
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+  document.querySelectorAll(".tabpane").forEach((x) => x.classList.remove("active"));
+  b.classList.add("active");
+  $(`tab-${b.dataset.tab}`).classList.add("active");
+}));
+$("btn-update").addEventListener("click", () => updateAll());
+$("day-select").addEventListener("change", renderFixtures);
+$("day-prev").addEventListener("click", () => shiftDay(-1));
+$("day-next").addEventListener("click", () => shiftDay(1));
+$("btn-matchup").addEventListener("click", () => renderPrediction(
+  "matchup-prediction", $("team-a").value, $("team-b").value,
+  $("venue-select").value, $("venue-select").value ? null : true, ""));
+$("btn-save-key").addEventListener("click", async () => {
+  localStorage.setItem("oddsKey", $("odds-key").value.trim());
+  await fetchOdds();
+});
+
+boot();
+
+</script>
+</body>
+</html>
