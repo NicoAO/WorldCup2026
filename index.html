@@ -193,7 +193,7 @@ h3 { margin-top: 26px; }
     <img src="BVB.jpg" alt="" class="brandlogo">
     <div class="brandtext">
       <h1>Nico&rsquo;s model for the World Cup</h1>
-      <div class="sub">Elo + weighted SRS + Maher Poisson attack/defense, retrained on every international result with time-decay and a heavy World Cup boost. Per-team expected goals are tilted by last-10 Elo-adjusted form, recent qualifying performance and major-finals experience, then turned into exact-score probabilities via a Dixon&ndash;Coles low-score correction and optionally blended with de-vigged sportsbook lines.</div>
+      <div class="sub">Elo + weighted SRS + Maher Poisson attack/defense, retrained on every international result with time-decay and a World Cup boost. Per-team expected goals are tilted by last-10 Elo-adjusted form, then turned into exact-score probabilities via a Dixon&ndash;Coles low-score correction and optionally blended with de-vigged sportsbook lines.</div>
     </div>
   </div>
   <div class="hactions">
@@ -454,7 +454,7 @@ async function updateAll(firstLoad = false) {
     fixtures = JSON.parse(py.runPython("fixtures()"));
     teams = JSON.parse(py.runPython("teams_table()"));
     const prog = JSON.parse(py.runPython("wc_progress()"));
-    $("wc-progress").textContent = `${prog.done} of ${prog.total} WC matches played`;
+    $("wc-progress").textContent = `${prog.done} of ${prog.total} WC group stage matches played`;
 
     renderDaySelect();
     renderFixtures();
