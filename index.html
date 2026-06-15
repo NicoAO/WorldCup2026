@@ -418,9 +418,11 @@ const ESPN_NAME_FIX = {
 async function fetchLiveScores() {
   const wcTeams = new Set(Object.keys(FLAGS));
   const fix = (s) => ESPN_NAME_FIX[s] || s;
+  const seen = new Set();
   const out = [];
   const today = new Date();
-  for (let i = -3; i <= 0; i++) {
+  // widen the window so games near UTC midnight (most US/CAN/MEX evening kickoffs) aren't missed
+  for (let i = -4; i <= 1; i++) {
     const d = new Date(today);
     d.setUTCDate(d.getUTCDate() + i);
     const yyyymmdd = d.toISOString().slice(0, 10).replace(/-/g, "");
@@ -429,6 +431,7 @@ async function fetchLiveScores() {
       if (!r.ok) continue;
       const data = await r.json();
       for (const ev of (data.events || [])) {
+        if (seen.has(ev.id)) continue;  // ESPN can echo the same event under adjacent date queries
         const comp = ev.competitions?.[0];
         if (!comp || !comp.status?.type?.completed) continue;
         const cs = comp.competitors || [];
@@ -438,8 +441,9 @@ async function fetchLiveScores() {
         const h = fix(home.team.displayName || home.team.name);
         const a = fix(away.team.displayName || away.team.name);
         if (!wcTeams.has(h) || !wcTeams.has(a)) continue;
+        seen.add(ev.id);
         out.push({
-          date: ev.date.slice(0, 10),
+          date: ev.date.slice(0, 10),  // UTC date, may differ from venue-local date by 1
           home: h, away: a,
           hs: parseInt(home.score, 10), as: parseInt(away.score, 10),
           city: comp.venue?.address?.city || "",
@@ -453,35 +457,51 @@ async function fetchLiveScores() {
 
 function patchCsvWithLiveScores(csv, rows) {
   if (!rows.length) return { csv, added: 0, patched: 0 };
-  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const isMissing = (s) => s === "" || s === "NA";
   const csvCell = (s) => /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  const dayDelta = (a, b) =>
+    Math.abs((new Date(a + "T12:00:00Z") - new Date(b + "T12:00:00Z")) / 86400000);
   const lines = csv.split("\n");
-  const prefIdx = new Map();
+
+  // index by team pair (date varies by ±1 between martj42 local and ESPN UTC)
+  const pairIdx = new Map();
+  const addPair = (h, a, d, i) => {
+    const k = `${h}|${a}`;
+    if (!pairIdx.has(k)) pairIdx.set(k, []);
+    pairIdx.get(k).push({ date: d, idx: i });
+  };
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i]) continue;
-    const p = lines[i].split(",", 3);
-    prefIdx.set(`${p[0]},${p[1]},${p[2]}`, i);
+    const p = lines[i].split(",", 5);
+    if (p.length >= 3) addPair(p[1], p[2], p[0], i);
   }
+
   let added = 0, patched = 0;
   for (const r of rows) {
-    const fwd = `${r.date},${r.home},${r.away}`;
-    const rev = `${r.date},${r.away},${r.home}`;
-    let i = prefIdx.get(fwd);
-    let key = fwd, flipped = false;
-    if (i === undefined) { i = prefIdx.get(rev); key = rev; flipped = true; }
-    if (i !== undefined) {
-      const re = new RegExp(`^(${esc(key)},)([^,]*)(,)([^,]*)(,)`);
-      const m = re.exec(lines[i]);
-      if (m && (isMissing(m[2]) || isMissing(m[4]))) {
-        const hs = flipped ? r.as : r.hs;
-        const as = flipped ? r.hs : r.as;
-        lines[i] = lines[i].replace(re, `$1${hs}$3${as}$5`);
+    let match = null, flipped = false;
+    for (const c of (pairIdx.get(`${r.home}|${r.away}`) || [])) {
+      if (dayDelta(c.date, r.date) <= 1) { match = c; break; }
+    }
+    if (!match) {
+      for (const c of (pairIdx.get(`${r.away}|${r.home}`) || [])) {
+        if (dayDelta(c.date, r.date) <= 1) { match = c; flipped = true; break; }
+      }
+    }
+    if (match) {
+      // patch in place; first 5 cells are always unquoted (date,team,team,score,score)
+      const cells = lines[match.idx].split(",");
+      if (isMissing(cells[3]) || isMissing(cells[4])) {
+        cells[3] = String(flipped ? r.as : r.hs);
+        cells[4] = String(flipped ? r.hs : r.as);
+        lines[match.idx] = cells.join(",");
         patched++;
       }
+      // if already scored, leave it — never overwrite a recorded result
     } else {
+      const newIdx = lines.length;
       lines.push([r.date, r.home, r.away, r.hs, r.as, "FIFA World Cup",
                   csvCell(r.city), csvCell(r.country), "TRUE"].join(","));
+      addPair(r.home, r.away, r.date, newIdx);  // prevent re-append on a second pass
       added++;
     }
   }
