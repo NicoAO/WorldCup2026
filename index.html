@@ -6,21 +6,45 @@
 <title>WC2026 Predictor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #0a0f1a; --panel: rgba(19, 28, 44, .82); --panel2: rgba(26, 38, 56, .82); --line: rgba(80, 110, 150, .35);
   --text: #eef3fa; --muted: #93a5c0; --green: #2ecc71; --green2: #27ae60;
   --gold: #f1c40f; --red: #e74c5b; --drawc: #5d7294;
+
+  /* Typography tokens */
+  --font-body: "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Oswald", "Trebuchet MS", "Impact", system-ui, sans-serif;
+
+  /* Group-stage color identities (A–L) */
+  --grp-a: #10d27a;  /* Emerald Green */
+  --grp-b: #ef4358;  /* Crimson Red */
+  --grp-c: #f5a623;  /* Golden Orange */
+  --grp-d: #3b82f6;  /* Vibrant Blue */
+  --grp-e: #8b5cf6;  /* Deep Purple */
+  --grp-f: #9ee62b;  /* Lime Green */
+  --grp-g: #ec4899;  /* Hot Pink */
+  --grp-h: #34e0c8;  /* Mint / Light Turquoise */
+  --grp-i: #b6a4f7;  /* Lavender */
+  --grp-j: #14b8a6;  /* Dark Teal */
+  --grp-k: #ff5a2c;  /* Orange Red */
+  --grp-l: #38bdf8;  /* Sky Blue */
+
+  /* Knockout-stage color identities */
+  --rnd-r32:   #b6a4f7;  /* Lavender */
+  --rnd-r16:   #f97316;  /* Classic Orange */
+  --rnd-qf:    #2dd4bf;  /* Turquoise / Mint */
+  --rnd-sf:    #38bdf8;  /* Sky Blue */
+  --rnd-final: #facc15;  /* Vibrant Yellow */
+  --rnd-third: #cd7f47;  /* Bronze / Earthy Orange */
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
   margin: 0; color: var(--text);
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
-  letter-spacing: -0.011em;
   line-height: 1.5; min-height: 100vh;
   background: var(--bg);
 }
@@ -280,6 +304,86 @@ h3 { margin-top: 26px; }
   .proj .nums { font-size: 2.1rem; }
 }
 
+/* ============================================================
+   DESIGN SYSTEM — display typography, color identities, flags
+   ============================================================ */
+
+/* Geometric / athletic display font on branding, headers & score metrics */
+.brand h1, .section-title, .bracket-col h5, .group-card h4 .gtag,
+.proj .nums, .fixture .score, .matchhead .proj .lbl, nav .tab {
+  font-family: var(--font-display);
+}
+.brand h1 { letter-spacing: .4px; text-transform: uppercase; font-weight: 700; }
+.section-title, .bracket-col h5 { font-weight: 600; }
+nav .tab { letter-spacing: .6px; text-transform: uppercase; font-size: .92rem; font-weight: 500; }
+.proj .nums, .fixture .score { letter-spacing: 1px; }
+
+/* Dynamic CDN flag images (hampusborgos/country-flags) */
+.flagimg {
+  display: inline-block; width: 1.7em; height: 1.18em; object-fit: cover;
+  border-radius: 3px; vertical-align: -0.22em; background: rgba(255,255,255,.04);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.4);
+}
+.fixture .teams .flagimg { width: 26px; height: 18px; margin: 0 7px; border-radius: 4px; }
+.card .side .flag { display: block; margin: 0 auto 8px; width: max-content; }
+.card .side .flag .flagimg { width: 58px; height: 40px; border-radius: 7px; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 6px 16px rgba(0,0,0,.45); }
+.group-row .name .flagimg, .team-progress .flagimg, #ratings-table .flagimg { margin-right: 6px; }
+.bracket-cell .side .tt .flagimg { width: 22px; height: 15px; margin-right: 5px; }
+
+/* ---- Group-stage color identities (accent border, glow, pill tag) ---- */
+.group-card { --accent: var(--gold); position: relative; overflow: hidden;
+  border-left: 4px solid var(--accent);
+  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 22px rgba(0,0,0,.18); }
+.group-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%); }
+.group-card[data-group="A"]{--accent:var(--grp-a)} .group-card[data-group="B"]{--accent:var(--grp-b)}
+.group-card[data-group="C"]{--accent:var(--grp-c)} .group-card[data-group="D"]{--accent:var(--grp-d)}
+.group-card[data-group="E"]{--accent:var(--grp-e)} .group-card[data-group="F"]{--accent:var(--grp-f)}
+.group-card[data-group="G"]{--accent:var(--grp-g)} .group-card[data-group="H"]{--accent:var(--grp-h)}
+.group-card[data-group="I"]{--accent:var(--grp-i)} .group-card[data-group="J"]{--accent:var(--grp-j)}
+.group-card[data-group="K"]{--accent:var(--grp-k)} .group-card[data-group="L"]{--accent:var(--grp-l)}
+.group-card h4 .gtag {
+  display: inline-flex; align-items: center; padding: 3px 11px; border-radius: 999px;
+  letter-spacing: 1.2px; text-transform: uppercase; font-size: .82rem; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.group-card .group-row .qbar div { background: var(--accent); }
+.group-card .group-row.locked .name, .group-card .group-row.locked-1 .name { color: var(--accent); }
+
+/* ---- Knockout-stage color identities (per round) ---- */
+.bracket-col { --accent: var(--gold); }
+.bracket-col[data-round="r32"]   { --accent: var(--rnd-r32); }
+.bracket-col[data-round="r16"]   { --accent: var(--rnd-r16); }
+.bracket-col[data-round="qf"]    { --accent: var(--rnd-qf); }
+.bracket-col[data-round="sf"]    { --accent: var(--rnd-sf); }
+.bracket-col[data-round="final"] { --accent: var(--rnd-final); }
+.bracket-col[data-round="third"] { --accent: var(--rnd-third); }
+.bracket-col h5 {
+  color: var(--accent); align-self: center; padding: 3px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
+}
+.bracket-col[data-round] .bracket-cell {
+  border-left: 3px solid color-mix(in srgb, var(--accent) 75%, transparent);
+}
+.bracket-col[data-round] .bracket-cell:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent) inset,
+              0 6px 18px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.bracket-col[data-round] .bracket-cell .vs-mini,
+.bracket-col[data-round] .bracket-cell .side.locked .tt { color: var(--accent); }
+.bracket-col[data-round="final"] .bracket-cell.final {
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 22%, transparent) inset;
+}
+
+/* ---- Trophy brand emblem ---- */
+.brandlogo { position: relative; overflow: hidden; }
+.brandlogo .trophy { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+.brandlogo svg { position: relative; z-index: 0; }
+
 </style>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
 </head>
@@ -297,6 +401,7 @@ h3 { margin-top: 26px; }
 <header>
   <div class="brand">
     <div class="brandlogo" aria-hidden="true">
+      <img src="trophy.jpg" alt="" class="trophy" onerror="this.remove()">
       <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="9"></circle>
         <path d="M12 7.2l4.2 3.05-1.6 4.95H9.4l-1.6-4.95z"></path>
@@ -406,6 +511,31 @@ const FLAGS = {
   "England": "", "Croatia": "🇭🇷", "Ghana": "🇬🇭", "Panama": "🇵🇦",
 };
 const flag = (t) => (FLAGS[t] !== undefined ? FLAGS[t] : "⚽");
+
+/* ISO Alpha-2 codes (plus UK subdivisions) for CDN flag images */
+const ISO = {
+  "Mexico": "MX", "South Korea": "KR", "South Africa": "ZA", "Czech Republic": "CZ",
+  "Canada": "CA", "Qatar": "QA", "Switzerland": "CH", "Bosnia and Herzegovina": "BA",
+  "Brazil": "BR", "Haiti": "HT", "Scotland": "GB-SCT", "Morocco": "MA",
+  "United States": "US", "Paraguay": "PY", "Australia": "AU", "Turkey": "TR",
+  "Germany": "DE", "Ivory Coast": "CI", "Ecuador": "EC", "Curaçao": "CW",
+  "Netherlands": "NL", "Japan": "JP", "Tunisia": "TN", "Sweden": "SE",
+  "Belgium": "BE", "Egypt": "EG", "Iran": "IR", "New Zealand": "NZ",
+  "Spain": "ES", "Cape Verde": "CV", "Saudi Arabia": "SA", "Uruguay": "UY",
+  "France": "FR", "Senegal": "SN", "Iraq": "IQ", "Norway": "NO",
+  "Argentina": "AR", "Algeria": "DZ", "Austria": "AT", "Jordan": "JO",
+  "Portugal": "PT", "DR Congo": "CD", "Uzbekistan": "UZ", "Colombia": "CO",
+  "England": "GB-ENG", "Croatia": "HR", "Ghana": "GH", "Panama": "PA",
+};
+const FLAG_CDN = "https://cdn.jsdelivr.net/gh/hampusborgos/country-flags@main/svg";
+/* Render a team's flag as a CDN <img>, gracefully falling back to the emoji glyph. */
+function flagImg(team) {
+  const code = ISO[team];
+  if (!code) return `<span class="flag">${flag(team)}</span>`;
+  return `<img class="flagimg" loading="lazy" alt="" src="${FLAG_CDN}/${code.toLowerCase()}.svg"` +
+    ` onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'flag',textContent:flagEmoji('${team.replace(/'/g, "\\'")}')}))">`;
+}
+window.flagEmoji = (t) => (FLAGS[t] !== undefined ? FLAGS[t] : "⚽");
 
 let py = null;
 let fixtures = [];
@@ -669,9 +799,9 @@ function renderFixtures() {
   $("fixture-list").innerHTML = list.map((f) => `
     <div class="fixture" data-i="${fixtures.indexOf(f)}">
       <div class="teams">
-        <span><span class="flag">${flag(f.home)}</span>${f.home}</span>
+        <span>${flagImg(f.home)}${f.home}</span>
         <span class="score">${f.score ? f.score : "vs"}</span>
-        <span>${f.away}<span class="flag" style="margin:0 0 0 6px">${flag(f.away)}</span></span>
+        <span>${f.away}${flagImg(f.away)}</span>
       </div>
       <div class="meta">
         <span>${f.city}, ${f.country}</span>
@@ -746,7 +876,7 @@ async function renderPrediction(targetId, home, away, venue, neutral, note) {
     <div class="card">
       <div class="matchhead">
         <div class="side">
-          <span class="flag">${flag(home)}</span>
+          <span class="flag">${flagImg(home)}</span>
           <div class="name">${home}</div>
           <div class="elo">Elo ${Math.round(r.elo[0])} · str ${(50 + 15 * r.strength[0]).toFixed(0)}</div>
         </div>
@@ -755,7 +885,7 @@ async function renderPrediction(targetId, home, away, venue, neutral, note) {
           <div class="lbl">projected score</div>
         </div>
         <div class="side">
-          <span class="flag">${flag(away)}</span>
+          <span class="flag">${flagImg(away)}</span>
           <div class="name">${away}</div>
           <div class="elo">Elo ${Math.round(r.elo[1])} · str ${(50 + 15 * r.strength[1]).toFixed(0)}</div>
         </div>
@@ -791,7 +921,7 @@ function renderRatings() {
   const maxS = teams[0]?.strength || 100;
   $("ratings-table").querySelector("tbody").innerHTML = teams.map((t, i) => `
     <tr><td>${i + 1}</td>
-    <td>${flag(t.team)} ${t.team}</td><td>${t.group}</td>
+    <td>${flagImg(t.team)} ${t.team}</td><td>${t.group}</td>
     <td><span class="sbar" style="width:${Math.max(6, 90 * t.strength / maxS)}px"></span><b>${t.strength}</b></td>
     <td>${t.elo}</td><td>#${t.fifa_rank}</td>
     <td>${colorForm(t.form)}</td><td>${t.ppg.toFixed(2)}</td></tr>`).join("");
@@ -815,6 +945,18 @@ const BRACKET_ROUNDS = [
   { name: "Semifinals", mids: ["M101", "M102"] },
   { name: "Final", mids: ["M104"] },
 ];
+
+/* Map a round name to its color-identity slug (see CSS --rnd-* tokens). */
+function roundSlug(name) {
+  const n = name.toLowerCase();
+  if (n.includes("32")) return "r32";
+  if (n.includes("16")) return "r16";
+  if (n.includes("quarter")) return "qf";
+  if (n.includes("semi")) return "sf";
+  if (n.includes("third") || n.includes("3rd")) return "third";
+  if (n.includes("final")) return "final";
+  return "";
+}
 
 /* ----- live (real) bracket: filled from actual played games ----- */
 function renderLive() {
@@ -844,28 +986,28 @@ function renderLiveGroups() {
                 : r.lock === "X" ? "elim" : "";
       return `<div class="group-row ${cls}">
         <span class="rank">${i + 1}</span>
-        <span class="name">${flag(r.team)} ${r.team} ${lockChip[r.lock] || ""}</span>
+        <span class="name">${flagImg(r.team)} ${r.team} ${lockChip[r.lock] || ""}</span>
         <span class="gp">${r.gp}gp · ${r.gd >= 0 ? "+" : ""}${r.gd}</span>
         <span class="live-pts">${r.pts}</span>
       </div>`;
     }).join("");
-    return `<div class="group-card">
+    return `<div class="group-card" data-group="${gid}">
       <h4><span class="gtag">Group ${gid}</span> ${sub}</h4>${rows}
     </div>`;
   }).join("");
   return `<div class="groups-grid">${cards}</div>`;
 }
 
-function liveCell(mid, isFinal) {
+function liveCell(mid, isFinal, slug) {
   const c = live.cells[mid];
   const renderSide = (team, label) => team
-    ? `<div class="side locked"><span class="tt">${flag(team)} ${team}</span></div>`
+    ? `<div class="side locked"><span class="tt">${flagImg(team)} ${team}</span></div>`
     : `<div class="side"><span class="tt">TBD</span><span class="spec">${label}</span></div>`;
   const both = c.home && c.away;
   const cls = `bracket-cell ${isFinal ? "final" : ""} ${both ? "predictable" : "tbd"}`;
   const ds = both ? `data-home="${c.home}" data-away="${c.away}"` : "";
   const vs = both ? '<div class="vs-mini">click to predict</div>' : '<div class="vs-mini">VS</div>';
-  return `<div class="${cls}" ${ds}>
+  return `<div class="${cls}" data-round="${slug}" ${ds}>
     <div class="mid">${mid}</div>
     ${renderSide(c.home, c.home_label)}
     ${vs}
@@ -876,8 +1018,9 @@ function liveCell(mid, isFinal) {
 function renderLiveBracketGrid() {
   const cols = BRACKET_ROUNDS.map((round, i) => {
     const isFinal = i === BRACKET_ROUNDS.length - 1;
-    const cells = round.mids.map((mid) => liveCell(mid, isFinal)).join("");
-    return `<div class="bracket-col ${isFinal ? "final" : ""}"><h5>${round.name}</h5>${cells}</div>`;
+    const slug = roundSlug(round.name);
+    const cells = round.mids.map((mid) => liveCell(mid, isFinal, slug)).join("");
+    return `<div class="bracket-col ${isFinal ? "final" : ""}" data-round="${slug}"><h5>${round.name}</h5>${cells}</div>`;
   }).join("");
   return `<div class="bracket">${cols}</div>`;
 }
@@ -935,12 +1078,12 @@ function renderGroupsGrid() {
                 : r.eliminated ? '<span class="chip out">OUT</span>' : "";
       return `<div class="group-row ${cls}">
         <span class="rank">${i + 1}</span>
-        <span class="name">${flag(r.team)} ${r.team} ${chip}</span>
+        <span class="name">${flagImg(r.team)} ${r.team} ${chip}</span>
         <span class="qbar"><div style="width:${Math.round(100 * r.qualify)}%"></div></span>
         <span class="qpct">${pct(r.qualify)}</span>
       </div>`;
     }).join("");
-    return `<div class="group-card">
+    return `<div class="group-card" data-group="${gid}">
       <h4><span class="gtag">Group ${gid}</span> ${sub}</h4>
       ${teamRows}
     </div>`;
@@ -948,11 +1091,11 @@ function renderGroupsGrid() {
   return `<div class="groups-grid">${cards}</div>`;
 }
 
-function bracketCell(mid, isFinal = false) {
+function bracketCell(mid, isFinal = false, slug = "") {
   const m = bracket.matches[mid];
   const pct = (x) => `${Math.round(100 * x)}%`;
   if (!m || !m.home.length || !m.away.length) {
-    return `<div class="bracket-cell tbd ${isFinal ? "final" : ""}">
+    return `<div class="bracket-cell tbd ${isFinal ? "final" : ""}" data-round="${slug}">
       <div class="mid">${mid}</div>
       <div class="side"><span class="tt">TBD</span></div>
       <div class="vs-mini">VS</div>
@@ -963,11 +1106,11 @@ function bracketCell(mid, isFinal = false) {
     const top = arr[0];
     const lockedCls = top.prob >= 0.999 ? "locked" : "";
     return `<div class="side ${lockedCls}">
-      <span class="tt">${flag(top.team)} ${top.team}</span>
+      <span class="tt">${flagImg(top.team)} ${top.team}</span>
       <span class="tp">${pct(top.prob)}</span>
     </div>`;
   };
-  return `<div class="bracket-cell ${isFinal ? "final" : ""}">
+  return `<div class="bracket-cell ${isFinal ? "final" : ""}" data-round="${slug}">
     <div class="mid">${mid}</div>
     ${renderSide(m.home)}
     <div class="vs-mini">VS</div>
@@ -978,8 +1121,9 @@ function bracketCell(mid, isFinal = false) {
 function renderBracketGrid() {
   const cols = BRACKET_ROUNDS.map((round, i) => {
     const isFinal = i === BRACKET_ROUNDS.length - 1;
-    const cells = round.mids.map((mid) => bracketCell(mid, isFinal)).join("");
-    return `<div class="bracket-col ${isFinal ? "final" : ""}">
+    const slug = roundSlug(round.name);
+    const cells = round.mids.map((mid) => bracketCell(mid, isFinal, slug)).join("");
+    return `<div class="bracket-col ${isFinal ? "final" : ""}" data-round="${slug}">
       <h5>${round.name}</h5>${cells}
     </div>`;
   }).join("");
@@ -995,7 +1139,7 @@ function renderTeamTable() {
   const bar = (x, cup = false) => `<span class="pbar"><div style="width:${Math.max(0, pct(x))}%"></div></span>${pct(x)}%`;
   const body = rows.map((r, i) => `
     <tr>
-      <td>${i + 1}. ${flag(r.team)} ${r.team}</td>
+      <td>${i + 1}. ${flagImg(r.team)} ${r.team}</td>
       <td>${bar(r.r32)}</td>
       <td>${bar(r.r16)}</td>
       <td>${bar(r.qf)}</td>
