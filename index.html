@@ -416,7 +416,7 @@ nav .tab { letter-spacing: .6px; text-transform: uppercase; font-size: .92rem; f
   </video>
   <div id="loader-veil"></div>
   <div class="loadbar"><div id="loadfill"></div></div>
-  <div class="step" id="loadstep">Starting up</div>
+  <div class="step" id="loadstep">Loading&hellip; <span style="opacity:.65;font-weight:400">~30s on first visit</span></div>
 </div>
 <script>
   /* Nudge the loader video to start immediately on mobile (muted inline autoplay). */
@@ -583,7 +583,7 @@ const $ = (id) => document.getElementById(id);
 function setStatus(msg, busy = false) {
   $("status").textContent = msg;
   $("statuspill").classList.toggle("busy", busy);
-  $("loadstep").textContent = msg;
+  // Loader keeps a short, static "Loading…" message; detailed steps only show in the header pill.
 }
 function loadProgress(p) { $("loadfill").style.width = `${p}%`; }
 
@@ -610,6 +610,7 @@ async function boot() {
     setTimeout(() => { try { $("loader-video").pause(); } catch {} }, 600);
   } catch (err) {
     setStatus(`error: ${err.message ?? err}`);
+    $("loadstep").textContent = `Error: ${err.message ?? err}`;
     console.error(err);
   }
 }
