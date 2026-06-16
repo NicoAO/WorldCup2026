@@ -3,7 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WC2026 Predictor</title>
+<title>Nico&rsquo;s World Cup 2026 Model &mdash; predictions, bracket &amp; odds</title>
+<meta name="description" content="A statistical FIFA World Cup 2026 predictor: Elo + Maher–Poisson + Dixon–Coles, blended with de-vigged sportsbook odds and a Monte Carlo simulation of the full bracket — running entirely in your browser.">
+<link rel="icon" type="image/jpeg" href="trophy.jpg">
+<link rel="apple-touch-icon" href="trophy.jpg">
+
+<!-- Open Graph / social share -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://nicoao.github.io/WorldCup2026/">
+<meta property="og:title" content="Nico's World Cup 2026 Model">
+<meta property="og:description" content="Elo + Maher–Poisson + Monte Carlo. Predictions for all 104 matches, the full knockout bracket and live odds — running entirely in your browser.">
+<meta property="og:image" content="https://nicoao.github.io/WorldCup2026/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Nico's World Cup 2026 Model">
+<meta name="twitter:description" content="Elo + Maher–Poisson + Monte Carlo. Predictions for all 104 matches, the full bracket and live odds — in your browser.">
+<meta name="twitter:image" content="https://nicoao.github.io/WorldCup2026/share.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
@@ -86,10 +103,11 @@ body::after {
     radial-gradient(600px 300px at 50% 100%, rgba(0, 0, 0, .7), transparent 70%),
     linear-gradient(180deg, rgba(0, 0, 0, .15) 0%, rgba(0, 0, 0, .55) 100%);
 }
-#loader > .loadbar, #loader > .step { position: relative; z-index: 2; }
+#loader > .loadbar, #loader > .step, #loader > .step-sub { position: relative; z-index: 2; }
 .loadbar { width: 280px; height: 8px; background: rgba(255, 255, 255, .15); border-radius: 6px; overflow: hidden; box-shadow: 0 4px 16px rgba(0, 0, 0, .5); }
 .loadbar div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green2), var(--green)); transition: width .4s; }
 #loader .step { color: #fff; font-size: .95rem; max-width: 460px; text-shadow: 0 2px 8px rgba(0, 0, 0, .8); font-weight: 500; }
+#loader .step-sub { color: rgba(255, 255, 255, .82); font-size: .8rem; line-height: 1.5; max-width: 420px; text-shadow: 0 2px 8px rgba(0, 0, 0, .85); margin-top: 2px; }
 
 /* header */
 header {
@@ -394,13 +412,27 @@ nav .tab { letter-spacing: .6px; text-transform: uppercase; font-size: .92rem; f
 <body>
 
 <div id="loader">
-  <video id="loader-video" autoplay muted playsinline loop preload="auto">
+  <video id="loader-video" autoplay muted playsinline webkit-playsinline loop preload="auto" disableremoteplayback>
     <source src="gol.mp4" type="video/mp4">
   </video>
   <div id="loader-veil"></div>
   <div class="loadbar"><div id="loadfill"></div></div>
   <div class="step" id="loadstep">Starting up</div>
+  <div class="step-sub">Everything runs locally in your browser &mdash; the models train on your own device&rsquo;s GPU &amp; RAM. No server, nothing ever leaves your machine.</div>
 </div>
+<script>
+  /* Nudge the loader video to start immediately on mobile (muted inline autoplay). */
+  (function () {
+    var v = document.getElementById("loader-video");
+    if (!v) return;
+    var play = function () { var p = v.play(); if (p && p.catch) p.catch(function () {}); };
+    play();
+    v.addEventListener("loadeddata", play, { once: true });
+    v.addEventListener("canplay", play, { once: true });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) play(); });
+    window.addEventListener("pageshow", play);
+  })();
+</script>
 
 <header>
   <div class="brand">
@@ -968,7 +1000,7 @@ function renderLive() {
   $("live-section").innerHTML = `
     <div class="section-title">Live group stage</div>
     ${renderLiveGroups()}
-    <div class="section-title">Live knockout bracket &mdash; mathematically determined slots</div>
+    <div class="section-title">Live knockout bracket</div>
     <div class="bracket-wrap">${renderLiveBracketGrid()}</div>`;
   document.querySelectorAll(".bracket-cell.predictable").forEach((el) =>
     el.addEventListener("click", () => predictKO(el.dataset.home, el.dataset.away)));
