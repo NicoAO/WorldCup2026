@@ -6,7 +6,7 @@
 <title>WC2026 Predictor</title>
 <style>
 :root {
-  --bg: #0a0f1a; --panel: #131c2c; --panel2: #1a2638; --line: #263651;
+  --bg: #0a0f1a; --panel: rgba(19, 28, 44, .82); --panel2: rgba(26, 38, 56, .82); --line: rgba(80, 110, 150, .35);
   --text: #eef3fa; --muted: #93a5c0; --green: #2ecc71; --green2: #27ae60;
   --gold: #f1c40f; --red: #e74c5b; --drawc: #5d7294;
 }
@@ -15,25 +15,48 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0; color: var(--text); font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   line-height: 1.5; min-height: 100vh;
+  background: var(--bg);
+}
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -2;
+  background: url("background.jpg") center/cover no-repeat fixed;
+}
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(900px 500px at 85% -10%, rgba(46, 204, 113, .14), transparent 60%),
-    radial-gradient(700px 400px at -10% 110%, rgba(241, 196, 15, .10), transparent 60%),
-    var(--bg);
+    radial-gradient(1100px 600px at 50% -10%, rgba(10, 15, 26, .25), rgba(10, 15, 26, .82) 70%),
+    linear-gradient(180deg, rgba(10, 15, 26, .55) 0%, rgba(10, 15, 26, .8) 100%);
+}
+/* Frosted glass on every panel-like surface so the background reads through subtly */
+.pill, nav, .fixture, .matchhead, .card, .group-card, .bracket-cell,
+.daybar .nav, select, input, #ratings-table, .scorebar, details.recent,
+.bar3, .matrix {
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
 }
 
 /* loading overlay */
 #loader {
   position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 18px;
-  background: rgba(10, 15, 26, .96); backdrop-filter: blur(4px);
-  transition: opacity .4s; text-align: center; padding: 20px;
+  background: #000; transition: opacity .4s; text-align: center; padding: 20px;
+  overflow: hidden;
 }
 #loader.hidden { opacity: 0; pointer-events: none; }
-.ball { font-size: 3.2rem; animation: bounce 1s ease-in-out infinite; }
-@keyframes bounce { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-18px) rotate(120deg) } }
-.loadbar { width: 260px; height: 8px; background: var(--panel2); border-radius: 6px; overflow: hidden; }
+#loader-video {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  z-index: 0; opacity: .85;
+}
+#loader-veil {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(600px 300px at 50% 100%, rgba(0, 0, 0, .7), transparent 70%),
+    linear-gradient(180deg, rgba(0, 0, 0, .15) 0%, rgba(0, 0, 0, .55) 100%);
+}
+#loader > .loadbar, #loader > .step { position: relative; z-index: 2; }
+.loadbar { width: 280px; height: 8px; background: rgba(255, 255, 255, .15); border-radius: 6px; overflow: hidden; box-shadow: 0 4px 16px rgba(0, 0, 0, .5); }
 .loadbar div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green2), var(--green)); transition: width .4s; }
-#loader .step { color: var(--muted); font-size: .95rem; max-width: 420px; }
+#loader .step { color: #fff; font-size: .95rem; max-width: 460px; text-shadow: 0 2px 8px rgba(0, 0, 0, .8); font-weight: 500; }
 
 /* header */
 header {
@@ -43,8 +66,8 @@ header {
 .brand { display: flex; align-items: center; gap: 14px; max-width: 720px; }
 .brandlogo { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex: none; border: 1px solid var(--line); }
 .brandtext { min-width: 0; }
-.brand h1 { margin: 0 0 4px; font-size: 1.35rem; letter-spacing: .2px; }
-.brand .sub { color: var(--muted); font-size: .78rem; line-height: 1.45; }
+.brand h1 { margin: 0 0 4px; font-size: 1.35rem; letter-spacing: .2px; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+.brand .sub { color: var(--muted); font-size: .78rem; line-height: 1.45; text-shadow: 0 1px 6px rgba(0, 0, 0, .55); }
 .hactions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .pill {
   display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--muted);
@@ -247,7 +270,10 @@ h3 { margin-top: 26px; }
 <body>
 
 <div id="loader">
-  <div class="ball">⚽</div>
+  <video id="loader-video" autoplay muted playsinline loop preload="auto">
+    <source src="gol.mp4" type="video/mp4">
+  </video>
+  <div id="loader-veil"></div>
   <div class="loadbar"><div id="loadfill"></div></div>
   <div class="step" id="loadstep">Starting up</div>
 </div>
@@ -395,6 +421,7 @@ async function boot() {
     await updateAll(true);
     $("btn-update").disabled = false;
     $("loader").classList.add("hidden");
+    setTimeout(() => { try { $("loader-video").pause(); } catch {} }, 600);
   } catch (err) {
     setStatus(`error: ${err.message ?? err}`);
     console.error(err);
