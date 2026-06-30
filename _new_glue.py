@@ -233,27 +233,37 @@ def live_standings():
     out_groups = {}
     locked_pos = {}
     for gid, gteams in groups.items():
-        max_pts = {t: stats[t]["pts"] + 3 * (3 - stats[t]["gp"]) for t in gteams}
-        positions = {}
-        for t in gteams:
-            others = [u for u in gteams if u != t]
-            could_match = sum(1 for u in others if max_pts[u] >= stats[t]["pts"])
-            must_beat = sum(1 for u in others if stats[u]["pts"] > max_pts[t])
-            if could_match == 0:
-                positions[t] = "1"
-            elif could_match == 1:
-                positions[t] = "Q"  # top 2, but 1 vs 2 not yet split
-            elif must_beat >= 2:
-                positions[t] = "X"  # cannot finish top 2
-        first = next((t for t, p in positions.items() if p == "1"), None)
-        if first:
-            for t in list(positions):
-                if positions[t] == "Q":
-                    positions[t] = "2"
-
         rows = sorted(gteams, key=lambda t: (-stats[t]["pts"],
                                              -(stats[t]["gf"] - stats[t]["ga"]),
                                              -stats[t]["gf"], t))
+        all_played_group = all(stats[t]["gp"] >= 3 for t in gteams)
+
+        if all_played_group:
+            # Group is decided — rank by the full tiebreakers (pts, GD, GF) so
+            # the top two lock even when they finished level on points.
+            positions = {t: "X" for t in gteams}
+            positions[rows[0]] = "1"
+            positions[rows[1]] = "2"
+        else:
+            # Group still in progress — only lock what is mathematically certain.
+            max_pts = {t: stats[t]["pts"] + 3 * (3 - stats[t]["gp"]) for t in gteams}
+            positions = {}
+            for t in gteams:
+                others = [u for u in gteams if u != t]
+                could_match = sum(1 for u in others if max_pts[u] >= stats[t]["pts"])
+                must_beat = sum(1 for u in others if stats[u]["pts"] > max_pts[t])
+                if could_match == 0:
+                    positions[t] = "1"
+                elif could_match == 1:
+                    positions[t] = "Q"  # top 2, but 1 vs 2 not yet split
+                elif must_beat >= 2:
+                    positions[t] = "X"  # cannot finish top 2
+            first = next((t for t, p in positions.items() if p == "1"), None)
+            if first:
+                for t in list(positions):
+                    if positions[t] == "Q":
+                        positions[t] = "2"
+
         out_groups[gid] = {
             "rows": [{
                 "team": t, "pts": stats[t]["pts"], "gp": stats[t]["gp"],
@@ -261,7 +271,7 @@ def live_standings():
                 "gd": stats[t]["gf"] - stats[t]["ga"],
                 "lock": positions.get(t),
             } for t in rows],
-            "all_played": all(stats[t]["gp"] >= 3 for t in gteams),
+            "all_played": all_played_group,
         }
         locked_pos[gid] = {
             "1": next((t for t, p in positions.items() if p == "1"), None),
