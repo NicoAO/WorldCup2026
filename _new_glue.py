@@ -175,31 +175,6 @@ def _spec_label(spec):
     return f"3rd: {'/'.join(sorted(v))}"
 
 
-def _assign_thirds_live(qualified_groups):
-    """Deterministically map the qualifying third-placed groups to their R32
-    slots (same most-constrained-first backtracking as the simulator, minus the
-    random shuffle so the live bracket is stable)."""
-    slots = sorted(THIRD_SLOTS, key=lambda s: len(s[1] & set(qualified_groups)))
-    remaining = sorted(qualified_groups)
-    out = {}
-
-    def go(i):
-        if i == len(slots):
-            return True
-        sid, allowed = slots[i]
-        for c in [g for g in remaining if g in allowed]:
-            out[sid] = c
-            remaining.remove(c)
-            if go(i + 1):
-                return True
-            remaining.append(c)
-            del out[sid]
-        return False
-
-    go(0)
-    return out
-
-
 def live_standings():
     """Real (no simulation) group table + bracket cells that are mathematically locked."""
     teams_df = data.load_teams()
@@ -285,34 +260,6 @@ def live_standings():
             return locked_pos.get(v[1], {}).get(v[0])
         return None
 
-    bracket_cells = {}
-    for mid, hspec, aspec in KO_R32_DEF:
-        bracket_cells[mid] = {
-            "home": _lookup(hspec), "away": _lookup(aspec),
-            "home_label": _spec_label(hspec), "away_label": _spec_label(aspec),
-        }
-
-    # Once the group stage is complete, resolve the eight best third-placed
-    # teams and drop each into its Round-of-32 slot (the third always sits on the
-    # 'away' side of these fixtures).
-    if all(out_groups[g]["all_played"] for g in out_groups):
-        def _third_key(t):
-            return (-stats[t]["pts"], -(stats[t]["gf"] - stats[t]["ga"]),
-                    -stats[t]["gf"], t)
-        ranked_thirds = sorted(
-            ((gid, sorted(gteams, key=_third_key)[2]) for gid, gteams in groups.items()),
-            key=lambda gt: _third_key(gt[1]),
-        )
-        qualified = dict(ranked_thirds[:8])  # group letter -> third-placed team
-        for slot_mid, gletter in _assign_thirds_live(list(qualified)).items():
-            bracket_cells[slot_mid]["away"] = qualified[gletter]
-            bracket_cells[slot_mid]["away_label"] = f"3rd Group {gletter}"
-
-    for mid, (h_id, a_id) in KO_PAIRS.items():
-        bracket_cells[mid] = {"home": None, "away": None,
-                              "home_label": f"Winner {h_id}",
-                              "away_label": f"Winner {a_id}"}
-
     # Shootout winners (keyed "TeamA|TeamB", names sorted) written by the page
     # from ESPN, so games level after extra time still advance the right side.
     shootouts = {}
@@ -323,38 +270,93 @@ def live_standings():
     except Exception:
         shootouts = {}
 
-    # Carry actual knockout results forward through the bracket. A WC match
-    # between teams from different groups can only be a knockout game.
-    ko_winner = {}  # frozenset({home, away}) -> advancing team (None = undecided)
-    for _, g in wc_played.iterrows():
+    # Every WC match between two different-group teams is a knockout game. Read
+    # the actual fixtures (played and scheduled) straight from the data — that is
+    # the source of truth for who plays whom, so we never have to guess the
+    # third-place allocation ourselves.
+    wc_ko = df[(df["tournament"] == "FIFA World Cup")
+               & (df["date"] >= pd.Timestamp(config.WC_START))]
+    ko_fix = {}      # frozenset({home, away}) -> result record
+    ko_by_team = {}  # team -> list of its knockout fixtures
+    for _, g in wc_ko.iterrows():
         h = g["home_team"]; a = g["away_team"]
         gh, ga = glookup.get(h), glookup.get(a)
         if gh is None or ga is None or gh == ga:
             continue
-        hs = int(g["home_score"]); as_ = int(g["away_score"])
-        if hs > as_:
-            w = h
-        elif as_ > hs:
-            w = a
-        else:  # level after 90/120 — fall back to the recorded shootout result
-            w = shootouts.get("|".join(sorted((h, a))))
-        ko_winner[frozenset((h, a))] = w
+        played = pd.notna(g["home_score"])
+        rec = {"home": h, "away": a, "date": g["date"], "played": bool(played),
+               "hs": None, "as": None, "winner": None, "pens": False}
+        if played:
+            hs = int(g["home_score"]); as_ = int(g["away_score"])
+            rec["hs"], rec["as"] = hs, as_
+            if hs > as_:
+                rec["winner"] = h
+            elif as_ > hs:
+                rec["winner"] = a
+            else:  # level after extra time — settled on penalties
+                rec["pens"] = True
+                rec["winner"] = shootouts.get("|".join(sorted((h, a))))
+        ko_fix[frozenset((h, a))] = rec
+        ko_by_team.setdefault(h, []).append(rec)
+        ko_by_team.setdefault(a, []).append(rec)
 
-    advancing = {}  # mid -> winning team
-    for mid, _h, _a in KO_R32_DEF:
-        c = bracket_cells[mid]
-        if c["home"] and c["away"]:
-            w = ko_winner.get(frozenset((c["home"], c["away"])))
-            if w:
-                advancing[mid] = w
+    # a team's KO games in date order — its Nth game belongs to the Nth KO round
+    for recs in ko_by_team.values():
+        recs.sort(key=lambda r: r["date"])
+    # round index per bracket cell (R32 = 1, R16 = 2, ...)
+    round_of = {mid: 1 for mid, _h, _a in KO_R32_DEF}
     for mid, (h_id, a_id) in KO_PAIRS.items():
-        c = bracket_cells[mid]
-        c["home"] = advancing.get(h_id)
-        c["away"] = advancing.get(a_id)
-        if c["home"] and c["away"]:
-            w = ko_winner.get(frozenset((c["home"], c["away"])))
-            if w:
-                advancing[mid] = w
+        round_of[mid] = max(round_of[h_id], round_of[a_id]) + 1
+
+    def _new_cell(home, away, home_label, away_label):
+        return {"home": home, "away": away,
+                "home_label": home_label, "away_label": away_label,
+                "played": False, "hs": None, "as": None,
+                "winner": None, "pens": False}
+
+    def _attach(cell, rec):
+        cell["played"] = rec["played"]
+        if rec["played"]:
+            same = rec["home"] == cell["home"]
+            cell["hs"] = rec["hs"] if same else rec["as"]
+            cell["as"] = rec["as"] if same else rec["hs"]
+            cell["winner"] = rec["winner"]
+            cell["pens"] = rec["pens"]
+
+    def _fixture_for(team, rnd):
+        recs = ko_by_team.get(team, [])
+        return recs[rnd - 1] if team and len(recs) >= rnd else None
+
+    def _fill(cell, home_known, away_known, rnd):
+        """Fill a cell from the real fixture of whichever participant is known,
+        so a round advances even before both feeders (or a shootout) resolve."""
+        anchor = home_known or away_known
+        rec = _fixture_for(anchor, rnd)
+        if not rec:
+            return
+        other = rec["away"] if rec["home"] == anchor else rec["home"]
+        cell["home"], cell["away"] = (anchor, other) if home_known else (other, anchor)
+        _attach(cell, rec)
+
+    bracket_cells = {}
+    advancing = {}  # mid -> winning team
+    # Round of 32: anchor each cell on its fixed group-position team.
+    for mid, hspec, aspec in KO_R32_DEF:
+        home = _lookup(hspec)
+        cell = _new_cell(home, None, _spec_label(hspec), _spec_label(aspec))
+        _fill(cell, home, None, 1)
+        bracket_cells[mid] = cell
+        if cell["winner"]:
+            advancing[mid] = cell["winner"]
+
+    # Later rounds (KO_PAIRS is already in dependency order).
+    for mid, (h_id, a_id) in KO_PAIRS.items():
+        hw, aw = advancing.get(h_id), advancing.get(a_id)
+        cell = _new_cell(hw, aw, f"Winner {h_id}", f"Winner {a_id}")
+        _fill(cell, hw, aw, round_of[mid])
+        bracket_cells[mid] = cell
+        if cell["winner"]:
+            advancing[mid] = cell["winner"]
 
     ko_fixtures = []
     for _, r in wc_fixtures.iterrows():
