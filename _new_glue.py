@@ -217,6 +217,19 @@ def live_standings():
         else:
             stats[h]["pts"] += 1; stats[a]["pts"] += 1
 
+    # Whole group stage finished once every team has played its 3 group games.
+    group_stage_over = all(stats[t]["gp"] >= 3 for t in teams_df.index)
+    # Teams that reached the knockout stage: they appear in a WC fixture between
+    # two different groups (played or still scheduled). Lets us tell an advancing
+    # best-third from an eliminated third once the group stage is complete.
+    ko_stage = df[(df["tournament"] == "FIFA World Cup")
+                  & (df["date"] >= pd.Timestamp(config.WC_START))]
+    ko_teams = set()
+    for _, g in ko_stage.iterrows():
+        gh, ga = glookup.get(g["home_team"]), glookup.get(g["away_team"])
+        if gh is not None and ga is not None and gh != ga:
+            ko_teams.update((g["home_team"], g["away_team"]))
+
     out_groups = {}
     locked_pos = {}
     for gid, gteams in groups.items():
@@ -228,9 +241,17 @@ def live_standings():
         if all_played_group:
             # Group is decided — rank by the full tiebreakers (pts, GD, GF) so
             # the top two lock even when they finished level on points.
-            positions = {t: "X" for t in gteams}
-            positions[rows[0]] = "1"
-            positions[rows[1]] = "2"
+            positions = {rows[0]: "1", rows[1]: "2"}
+            # 4th can never be a best third, so it is out. The 3rd-placed team
+            # keeps its "3rd hope" only until the whole group stage ends; after
+            # that it has either advanced as a best third ("3") or is out.
+            for t in rows[3:]:
+                positions[t] = "out"
+            third = rows[2]
+            if not group_stage_over:
+                positions[third] = "X"
+            else:
+                positions[third] = "3" if third in ko_teams else "out"
         else:
             # Group still in progress — only lock what is mathematically certain.
             max_pts = {t: stats[t]["pts"] + 3 * (3 - stats[t]["gp"]) for t in gteams}
