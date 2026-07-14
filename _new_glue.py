@@ -87,16 +87,28 @@ def fixtures():
     played, fx = data.split_played_fixtures(df)
     wc = played[(played["tournament"] == "FIFA World Cup")
                 & (played["date"] >= config.WC_START)]
+
+    def _txt(v):
+        # A missing cell reads back as float NaN; json.dumps would emit the bare
+        # literal `NaN`, which is invalid JSON and aborts the whole page update.
+        return "" if pd.isna(v) else str(v)
+
     rows = []
     for _, r in fx.iterrows():
+        # Late knockout slots (3rd-place, final) sit in the feed with NA team
+        # names until their participants are decided. Skip them entirely.
+        if pd.isna(r["home_team"]) or pd.isna(r["away_team"]):
+            continue
         rows.append({"date": str(r["date"].date()), "home": r["home_team"],
-                     "away": r["away_team"], "city": r["city"],
-                     "country": r["country"], "neutral": bool(r["neutral"]),
+                     "away": r["away_team"], "city": _txt(r["city"]),
+                     "country": _txt(r["country"]), "neutral": bool(r["neutral"]),
                      "score": None})
     for _, r in wc.iterrows():
+        if pd.isna(r["home_team"]) or pd.isna(r["away_team"]):
+            continue
         rows.append({"date": str(r["date"].date()), "home": r["home_team"],
-                     "away": r["away_team"], "city": r["city"],
-                     "country": r["country"], "neutral": bool(r["neutral"]),
+                     "away": r["away_team"], "city": _txt(r["city"]),
+                     "country": _txt(r["country"]), "neutral": bool(r["neutral"]),
                      "score": f"{int(r['home_score'])}-{int(r['away_score'])}"})
     rows.sort(key=lambda x: x["date"])
     return json.dumps(rows)
